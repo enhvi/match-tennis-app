@@ -51,7 +51,7 @@ export default function HomeScreen({ navigation }) {
         style={styles.headerMenuButton}
         onPress={() => {
           console.log('Header menu button pressed');
-          navigation.navigate('Settings');
+          navigation.navigate('Menu');
         }}
         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         activeOpacity={0.7}
@@ -103,6 +103,11 @@ export default function HomeScreen({ navigation }) {
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      {/* Version Display */}
+      <View style={styles.versionContainer}>
+        <Text style={styles.versionText}>v0.1.0</Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -180,7 +185,8 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    right: 20,
+    left: '50%',
+    marginLeft: -30, // Half of width (60/2) to center it
     bottom: 20,
     width: 60,
     height: 60,
@@ -221,5 +227,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 32,
     fontWeight: 'bold',
+  },
+  versionContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  versionText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

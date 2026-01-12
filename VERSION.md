@@ -1,3 +1,16 @@
+# Find A Match - Version 0.2.0
+
+## Release Date
+January 12, 2025
+
+## Changes from 0.1.0
+- Upgraded to Expo SDK 54
+- Updated React to 19.1.0 and React Native to 0.81.5
+- Fixed mobile compatibility issues
+- Improved offline mode support
+
+---
+
 # Find A Match - Version 0.1.0
 
 ## Release Date

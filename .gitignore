@@ -1,18 +1,48 @@
+# Dependencies
 node_modules/
 .expo/
 .expo-shared/
 npm-debug.*
+yarn-error.log
+
+# Build outputs
+web-build/
+dist/
+build/
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
 *.orig.*
-web-build/
 
-# macOS
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Temporary files
+# Logs
 *.log
 *.tmp
+logs/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Server
+server/node_modules/
+server/.env# Temporary files
+expo-output.txt
+*.cache

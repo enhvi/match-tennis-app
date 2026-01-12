@@ -1,4 +1,4 @@
-// Backend server configuration
+﻿// Backend server configuration
 // Change this to your computer's IP address when testing with a friend
 // To find your IP: Run 'ipconfig' in PowerShell and look for IPv4 Address
 
@@ -12,4 +12,4 @@
 // 3. Make sure both phones are on the same Wi-Fi network
 // 4. Update this file on both devices with the same IP
 
-export const SERVER_URL = 'http://localhost:3000';
+export const SERVER_URL = 'http://192.168.178.81:3000';

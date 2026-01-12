@@ -7,6 +7,8 @@ import HomeScreen from './screens/HomeScreen';
 import RequestScreen from './screens/RequestScreen';
 import RequestsScreen from './screens/RequestsScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import MenuScreen from './screens/MenuScreen';
+import FriendsScreen from './screens/FriendsScreen';
 import MenuButton from './components/MenuButton';
 
 const Stack = createNativeStackNavigator();
@@ -42,6 +44,19 @@ export default function App() {
               name="Requests" 
               component={RequestsScreen}
               options={{ title: 'Request Details' }}
+            />
+            <Stack.Screen 
+              name="Menu" 
+              component={MenuScreen}
+              options={{ 
+                title: 'Menu',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen 
+              name="Friends" 
+              component={FriendsScreen}
+              options={{ title: 'Friends' }}
             />
             <Stack.Screen 
               name="Settings" 

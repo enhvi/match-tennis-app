@@ -51,12 +51,50 @@ const translations = {
     'details.matchConfirmed': 'Match confirmed!',
     'details.notFound': 'Request not found',
     
+    // Menu
+    'menu.title': 'Menu',
+    'menu.friends': 'Friends',
+    'menu.matchHistory': 'Match History',
+    'menu.share': 'Share App',
+    'menu.settings': 'Settings',
+    'menu.about': 'About',
+    
+    // Share
+    'share.title': 'Find A Match',
+    'share.message': 'Check out Find A Match - an app to find tennis partners and schedule matches! Download it now!',
+    'share.error': 'Unable to share the app',
+    
     // Settings
     'settings.title': 'Settings',
     'settings.languages': 'Languages',
     'settings.selectLanguages': 'Select Languages',
     'settings.language.german': 'German',
     'settings.language.english': 'English',
+    
+    // Friends
+    'friends.title': 'Friends',
+    'friends.addFriend': 'Add Friend',
+    'friends.addByCode': 'Add Friend by Code',
+    'friends.enterCode': 'Enter friend code',
+    'friends.sendRequest': 'Send Request',
+    'friends.or': 'OR',
+    'friends.inviteViaShare': 'Invite via WhatsApp/Email',
+    'friends.requests': 'Friend Requests',
+    'friends.wantsToAdd': 'wants to add you as a friend',
+    'friends.accept': 'Accept',
+    'friends.myFriends': 'My Friends',
+    'friends.noFriends': 'No friends yet',
+    'friends.addFirstFriend': 'Add your first friend to get started!',
+    'friends.pending': 'Pending',
+    'friends.inviteTitle': 'Join me on Find A Match!',
+    'friends.inviteMessage': 'Hey! Join me on Find A Match - an app to find tennis partners! Use my invite code: {code}',
+    'friends.success': 'Success',
+    'friends.error': 'Error',
+    'friends.inviteSent': 'Invite sent successfully!',
+    'friends.inviteError': 'Unable to send invite',
+    'friends.emptyCode': 'Please enter a friend code',
+    'friends.requestSent': 'Friend request sent!',
+    'friends.requestAccepted': 'Friend request accepted!',
     
     // Common
     'common.ok': 'OK',
@@ -101,12 +139,50 @@ const translations = {
     'details.matchConfirmed': 'Match bestätigt!',
     'details.notFound': 'Anfrage nicht gefunden',
     
+    // Menu
+    'menu.title': 'Menü',
+    'menu.friends': 'Freunde',
+    'menu.matchHistory': 'Match-Verlauf',
+    'menu.share': 'App teilen',
+    'menu.settings': 'Einstellungen',
+    'menu.about': 'Über',
+    
+    // Share
+    'share.title': 'Find A Match',
+    'share.message': 'Schau dir Find A Match an - eine App, um Tennispartner zu finden und Matches zu planen! Jetzt herunterladen!',
+    'share.error': 'App konnte nicht geteilt werden',
+    
     // Settings
     'settings.title': 'Einstellungen',
     'settings.languages': 'Sprachen',
     'settings.selectLanguages': 'Sprachen auswählen',
     'settings.language.german': 'Deutsch',
     'settings.language.english': 'Englisch',
+    
+    // Friends
+    'friends.title': 'Freunde',
+    'friends.addFriend': 'Freund hinzufügen',
+    'friends.addByCode': 'Freund per Code hinzufügen',
+    'friends.enterCode': 'Freundescode eingeben',
+    'friends.sendRequest': 'Anfrage senden',
+    'friends.or': 'ODER',
+    'friends.inviteViaShare': 'Via WhatsApp/E-Mail einladen',
+    'friends.requests': 'Freundesanfragen',
+    'friends.wantsToAdd': 'möchte dich als Freund hinzufügen',
+    'friends.accept': 'Akzeptieren',
+    'friends.myFriends': 'Meine Freunde',
+    'friends.noFriends': 'Noch keine Freunde',
+    'friends.addFirstFriend': 'Füge deinen ersten Freund hinzu, um loszulegen!',
+    'friends.pending': 'Ausstehend',
+    'friends.inviteTitle': 'Tritt mir bei Find A Match bei!',
+    'friends.inviteMessage': 'Hey! Tritt mir bei Find A Match bei - einer App, um Tennispartner zu finden! Verwende meinen Einladungscode: {code}',
+    'friends.success': 'Erfolg',
+    'friends.error': 'Fehler',
+    'friends.inviteSent': 'Einladung erfolgreich gesendet!',
+    'friends.inviteError': 'Einladung konnte nicht gesendet werden',
+    'friends.emptyCode': 'Bitte gib einen Freundescode ein',
+    'friends.requestSent': 'Freundesanfrage gesendet!',
+    'friends.requestAccepted': 'Freundesanfrage akzeptiert!',
     
     // Common
     'common.ok': 'OK',

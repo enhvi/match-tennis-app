@@ -5,6 +5,27 @@ All notable changes to Find A Match will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-12
+
+### Changed
+- Upgraded to Expo SDK 54 for compatibility with latest Expo Go
+- Updated React to 19.1.0
+- Updated React Native to 0.81.5
+- Updated all dependencies to SDK 54 compatible versions
+- Improved error handling for socket connections (app works offline)
+- Fixed turbomodulregistry errors on mobile devices
+
+### Fixed
+- App now works properly on mobile devices with Expo Go SDK 54
+- Resolved native module compatibility issues
+- Improved offline mode support when backend server is not running
+
+### Technical
+- React Native with Expo SDK 54
+- React 19.1.0
+- React Native 0.81.5
+- All native modules updated to SDK 54 compatible versions
+
 ## [0.1.0] - 2025-01-10
 
 ### Added
