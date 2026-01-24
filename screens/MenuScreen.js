@@ -41,21 +41,22 @@ export default function MenuScreen({ navigation }) {
 
   const menuItems = [
     {
+      id: 'profile',
+      title: t('menu.profile'),
+      icon: '👤',
+      screen: 'Profile',
+      onPress: () => {
+        navigation.navigate('Profile');
+      },
+    },
+    {
       id: 'friends',
       title: t('menu.friends'),
       icon: '👥',
       screen: 'Friends',
       onPress: () => {
         console.log('Friends button pressed');
-        // Close menu and navigate
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        }
-        // Use a small delay to ensure menu closes
-        setTimeout(() => {
-          console.log('Navigating to Friends screen');
-          navigation.navigate('Friends');
-        }, 300);
+        navigation.navigate('Friends');
       },
     },
     {
@@ -64,8 +65,7 @@ export default function MenuScreen({ navigation }) {
       icon: '📊',
       screen: 'MatchHistory',
       onPress: () => {
-        // TODO: Navigate to Match History screen when implemented
-        console.log('Match History - Coming soon');
+        navigation.navigate('MatchHistory');
       },
     },
     {
@@ -77,14 +77,20 @@ export default function MenuScreen({ navigation }) {
     },
     {
       id: 'settings',
-      title: t('menu.settings'),
+      title: t('menu.language'),
       icon: '⚙️',
       screen: 'Settings',
       onPress: () => {
-        navigation.goBack();
-        setTimeout(() => {
-          navigation.navigate('Settings');
-        }, 100);
+        navigation.navigate('Settings');
+      },
+    },
+    {
+      id: 'account',
+      title: t('menu.account'),
+      icon: '🔐',
+      screen: 'Account',
+      onPress: () => {
+        navigation.navigate('Account');
       },
     },
     {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Find A Match",
     "slug": "find-a-match",
-    "version": "0.2.0",
+    "version": "0.2.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.tennisapp.app"
+      "package": "com.tennisapp.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -5,6 +5,80 @@ All notable changes to Find A Match will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6] - 2026-01-24
+
+### Added
+- Match history screen for completed matches
+- Match completion flow ("mark as played") with completed badge
+- Shared profile UI for self and friends (Instagram-style)
+- Friend profile browsing with sports/friends/match stats
+- Home screen tabs for my/incoming/confirmed/cancelled sections
+
+### Changed
+- Logout moved from Profile to Account settings
+- Home request dates include weekday with locale formatting
+- Confirmed requests show final accepted time
+- Only creators can confirm matches
+- Removed "(You)" suffix from request details friend list
+
+---
+
+## [0.2.5] - 2026-01-24
+
+### Added
+- Request detail: creator avatar and start/end time picker for responders
+- Suggested time chips highlight and update the proposed start time
+- Home cards show creator photo/name and action-required grouping
+- Invited requests hide declined responses; confirmed matches exclude declines
+
+---
+
+## [0.2.4] - 2026-01-24
+
+### Added
+- Split pending requests into my vs incoming
+- Show accepted/declined responders on pending cards
+- Duration constraints and suggested time slots
+- Request edit, cancel, and delete flow
+
+---
+
+## [0.2.3] - 2026-01-22
+
+### Added
+- Request sport selection, player count, and invite-all option
+- Request cancel flow, accept/decline proposals, and acceptance counter
+- Friends sport filter chips
+- Home section for cancelled requests + sport display
+- Profile sports selection
+
+---
+
+## [0.2.2] - 2026-01-20
+
+### Added
+- Account screen with password reset and delete account
+- Friend cards now show avatar, name, username, and bio
+- Profile bio support
+- Language dropdown in settings
+
+### Changed
+- Split menu items into Language and Account
+
+---
+
+## [0.2.1] - 2026-01-16
+
+### Added
+- Firebase email/password auth with unique usernames
+- Profile screen with photo upload, email update, and logout
+- Firestore-backed friends and match requests
+
+### Removed
+- Local server and IP update scripts
+
+---
+
 ## [0.2.0] - 2025-01-12
 
 ### Changed

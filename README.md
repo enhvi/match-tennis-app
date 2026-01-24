@@ -2,6 +2,14 @@
 
 A cross-platform mobile application built with React Native and Expo that works on both iOS and Android.
 
+## Current Features
+
+- Friend system with requests, profiles, and sport filters
+- Match requests with time windows, responses, and confirmation flow
+- Match completion ("played") and a match history view
+- Profile and friend profile views with stats (sports, friends, matches)
+- English and German localization
+
 ## Prerequisites
 
 Before you begin, make sure you have the following installed:
@@ -81,19 +89,27 @@ eas build --platform android
 ```
 tennis-app/
 ├── App.js              # Main app component
+├── components/         # Shared UI components
+├── context/            # App/Auth/Language contexts
 ├── app.json            # Expo configuration
 ├── package.json        # Dependencies and scripts
 ├── babel.config.js     # Babel configuration
+├── screens/            # App screens
 └── assets/            # Images, fonts, etc.
 ```
 
+## Match History Logic
+
+- A match appears in history only after it is marked as **played**.
+- Use the **"Mark as Played"** action in the request details to complete it.
+- The Matches count in profiles is derived from completed matches.
+
 ## Next Steps
 
-- Add navigation (React Navigation)
-- Add state management (Redux, Context API, or Zustand)
-- Add API integration
-- Customize the UI for your tennis app features
-- Add app icons and splash screens in the `assets/` folder
+- Add a dedicated Match History screen sorting/filtering options
+- Improve privacy controls for friend profiles
+- Add push notifications for request updates
+- Customize icons and splash screens in the `assets/` folder
 
 ## Resources
 
