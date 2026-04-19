@@ -27,11 +27,20 @@ export default function ProfileView({
   matchCount = 0,
   showSports = false,
   onToggleSports,
-  showFriends = false,
-  onToggleFriends,
+  onFriendsPress,
+  onMatchesPress,
+  onFriendPress,
   t,
   footer = null,
+  colors: customColors,
 }) {
+  const colors = customColors || {
+    background: '#fff',
+    card: '#f8f9fa',
+    cardBorder: '#dee2e6',
+    text: '#2c3e50',
+    textSecondary: '#7f8c8d',
+  };
   const renderAvatar = () => {
     if (isEditable && onPickPhoto) {
       return (
@@ -60,16 +69,16 @@ export default function ProfileView({
     if (onPress) {
       return (
         <TouchableOpacity style={styles.statItem} onPress={onPress} activeOpacity={0.7}>
-          <Text style={styles.statNumber}>{value}</Text>
-          <Text style={styles.statLabel}>{label}</Text>
+          <Text style={[styles.statNumber, { color: colors.text }]}>{value}</Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
         </TouchableOpacity>
       );
     }
 
     return (
       <View style={styles.statItem}>
-        <Text style={styles.statNumber}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={[styles.statNumber, { color: colors.text }]}>{value}</Text>
+        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
       </View>
     );
   };
@@ -111,39 +120,9 @@ export default function ProfileView({
     );
   };
 
-  const renderFriendsContent = () => {
-    if (friends.length === 0) {
-      return <Text style={styles.emptyText}>{t('friendProfile.noFriends')}</Text>;
-    }
-
-    return (
-      <View style={styles.friendList}>
-        {friends.map((friend) => (
-          <View key={friend.id} style={styles.friendRow}>
-            {friend.photoURL ? (
-              <Image source={{ uri: friend.photoURL }} style={styles.friendAvatarSmall} />
-            ) : (
-              <View style={styles.friendAvatarPlaceholderSmall}>
-                <Text style={styles.friendAvatarPlaceholderText}>?</Text>
-              </View>
-            )}
-            <View style={styles.friendTextBlock}>
-              <Text style={styles.friendName}>
-                {friend.displayName || friend.username || friend.id}
-              </Text>
-              {friend.username ? (
-                <Text style={styles.friendUsername}>@{friend.username}</Text>
-              ) : null}
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.headerCard}>
+      <View style={[styles.headerCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
         {renderAvatar()}
         <View style={styles.headerText}>
           {isEditable ? (
@@ -154,9 +133,9 @@ export default function ProfileView({
               placeholder={t('profile.namePlaceholder')}
             />
           ) : (
-            <Text style={styles.nameText}>{name}</Text>
+            <Text style={[styles.nameText, { color: colors.text }]}>{name}</Text>
           )}
-          <Text style={styles.usernameText}>@{username}</Text>
+          <Text style={[styles.usernameText, { color: colors.textSecondary }]}>@{username}</Text>
           {isEditable ? (
             <TextInput
               style={styles.bioInput}
@@ -166,12 +145,12 @@ export default function ProfileView({
               multiline
             />
           ) : bio ? (
-            <Text style={styles.bioText}>{bio}</Text>
+            <Text style={[styles.bioText, { color: colors.textSecondary }]}>{bio}</Text>
           ) : null}
           <View style={styles.statsRow}>
             {renderStat(sports.length, t('friendProfile.sports'), onToggleSports)}
-            {renderStat(friends.length, t('friendProfile.friends'), onToggleFriends)}
-            {renderStat(matchCount, t('friendProfile.matches'))}
+            {renderStat(friends.length, t('friendProfile.friends'), onFriendsPress)}
+            {renderStat(matchCount, t('friendProfile.matches'), onMatchesPress)}
           </View>
         </View>
       </View>
@@ -182,15 +161,6 @@ export default function ProfileView({
             {isEditable ? t('profile.sportsTitle') : t('friendProfile.sports')}
           </Text>
           {renderSportsContent()}
-        </View>
-      )}
-
-      {showFriends && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t('friendProfile.friends')} ({friends.length})
-          </Text>
-          {renderFriendsContent()}
         </View>
       )}
 
@@ -312,8 +282,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   sportChipSelected: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#e8f5e9',
+    borderColor: '#6FD08B',
+    backgroundColor: '#e3f2fd',
   },
   sportChipText: {
     color: '#2c3e50',
@@ -321,7 +291,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sportChipTextSelected: {
-    color: '#2e7d32',
+    color: '#5bb87a',
   },
   chipRow: {
     flexDirection: 'row',
@@ -329,59 +299,17 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderRadius: 16,
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#e3f2fd',
     borderWidth: 1,
-    borderColor: '#4CAF50',
+    borderColor: '#6FD08B',
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
     marginBottom: 8,
   },
   chipText: {
-    color: '#2e7d32',
+    color: '#5bb87a',
     fontSize: 12,
     fontWeight: '600',
-  },
-  friendList: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    borderRadius: 12,
-    padding: 12,
-  },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e6e6e6',
-  },
-  friendAvatarSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 10,
-    backgroundColor: '#e0e0e0',
-  },
-  friendAvatarPlaceholderSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 10,
-    backgroundColor: '#e0e0e0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  friendTextBlock: {
-    flex: 1,
-  },
-  friendName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2c3e50',
-  },
-  friendUsername: {
-    fontSize: 12,
-    color: '#7f8c8d',
   },
 });

@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // —— Kurznachrichten nur zwischen Freunden (Verabredung), max. 500 Zeichen ——
+    function convOtherUid(parts) {
+      return parts[0] == request.auth.uid ? parts[1] : parts[0];
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null &&
+        request.auth.uid in resource.data.participants;
+
+      allow create: if request.auth != null &&
+        request.resource.data.participants is list &&
+        request.resource.data.participants.size() == 2 &&
+        request.auth.uid in request.resource.data.participants &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(convOtherUid(request.resource.data.participants)));
+
+      allow update: if request.auth != null &&
+        request.auth.uid in resource.data.participants;
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+
+        allow create: if request.auth != null &&
+          request.resource.data.keys().hasAll(['senderId', 'text', 'createdAt']) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          request.resource.data.text.size() <= 500 &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+
+        allow update, delete: if false;
+      }
+    }
+
+    // MAXIMAL PERMISSIV für Debugging – erlaubt alles (andere Collections)
+    // WICHTIG: Vor Produktion durch sichere Regeln ersetzen!
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

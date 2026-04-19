@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1083932941306",
+    "project_id": "match-tennis-app-c65eb",
+    "storage_bucket": "match-tennis-app-c65eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1083932941306:android:a1c166c0e27d54158e6243",
+        "android_client_info": {
+          "package_name": "com.tennisapp.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNMEeozaWHClIBYqp3AS1Psj4pKLc1kX8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

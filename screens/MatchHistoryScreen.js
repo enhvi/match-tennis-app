@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -8,13 +8,31 @@ import {
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
-export default function MatchHistoryScreen() {
+export default function MatchHistoryScreen({ navigation, route }) {
   const { requests } = useApp();
   const { t, primaryLanguage } = useLanguage();
+  const { colors } = useTheme();
+  const { friendId, friendName } = route?.params || {};
+
+  useEffect(() => {
+    if (friendName) {
+      navigation.setOptions({
+        title: t('matchHistory.titleForFriend', { name: friendName }),
+      });
+    }
+  }, [navigation, friendName, t]);
 
   const history = requests
     .filter((request) => request.status === 'completed')
+    .filter((request) => {
+      if (!friendId) {
+        return true;
+      }
+      const invited = Array.isArray(request.friendIds) ? request.friendIds : [];
+      return request.creatorId === friendId || invited.includes(friendId);
+    })
     .sort((a, b) => {
       const aTime = a.completedAt?.toDate ? a.completedAt.toDate().getTime() : 0;
       const bTime = b.completedAt?.toDate ? b.completedAt.toDate().getTime() : 0;
@@ -39,13 +57,14 @@ export default function MatchHistoryScreen() {
     if (!request?.responses) {
       return null;
     }
-    const accepted = Object.values(request.responses).filter(
-      (resp) => resp.status === 'accepted' && resp.acceptedStart
+    const accepted = Object.values(request.responses || {}).filter(
+      (resp) => resp?.status === 'accepted' && resp?.acceptedStart
     );
     if (accepted.length === 0) {
       return null;
     }
     const acceptedTime = accepted[0];
+    if (!acceptedTime?.acceptedStart) return null;
     const endTime =
       acceptedTime.acceptedEnd ||
       (request.durationMinutes
@@ -66,28 +85,34 @@ export default function MatchHistoryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{t('matchHistory.title')}</Text>
-
         {history.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>{t('matchHistory.noMatches')}</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {t('matchHistory.noMatches')}
+            </Text>
           </View>
         ) : (
           history.map((match) => {
             const finalTime = getFinalTimeRange(match);
             const displayTime = finalTime?.start
               ? `${finalTime.start} - ${finalTime.end || match.endTime}`
-              : `${match.startTime} - ${match.endTime}`;
+              : '—';
             return (
-              <View key={match.id} style={styles.matchCard}>
-                <Text style={styles.matchDate}>{formatDate(match.date)}</Text>
-                <Text style={styles.matchTime}>{displayTime}</Text>
+              <View
+                key={match.id}
+                style={[styles.matchCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <Text style={[styles.matchDate, { color: colors.text }]}>{formatDate(match.date)}</Text>
+                <Text style={[styles.matchTime, { color: colors.textSecondary }]}>{displayTime}</Text>
               {match.sport ? (
-                <Text style={styles.matchSport}>{match.sport}</Text>
+                <Text style={[styles.matchSport, { color: colors.text }]}>{match.sport}</Text>
               ) : null}
-              <Text style={styles.matchCreator}>
+              {match.location ? (
+                <Text style={[styles.matchLocation, { color: colors.textSecondary }]}>{match.location}</Text>
+              ) : null}
+              <Text style={[styles.matchCreator, { color: colors.textSecondary }]}>
                 {t('app.creator')}: {match.creatorDisplayName || match.creatorUsername || match.creatorId}
               </Text>
               </View>
@@ -109,13 +134,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 20,
-    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',
@@ -148,6 +166,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2c3e50',
     fontWeight: '600',
+    marginBottom: 6,
+  },
+  matchLocation: {
+    fontSize: 13,
+    color: '#7f8c8d',
     marginBottom: 6,
   },
   matchCreator: {

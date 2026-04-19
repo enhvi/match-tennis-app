@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
+  TextInput,
   View,
   ScrollView,
   TouchableOpacity,
@@ -12,68 +13,105 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function RequestsScreen({ navigation, route }) {
   const {
     requests,
     friends,
     acceptTimeProposal,
-    confirmMatch,
     completeMatch,
     cancelRequest,
-    acceptResponse,
     declineResponse,
+    withdrawFromMatch,
     deleteRequest,
     currentUser,
     userId,
   } = useApp();
-  const { t } = useLanguage();
-  const { requestId } = route.params || {};
+  const { t, primaryLanguage } = useLanguage();
+  const { colors } = useTheme();
+  const { requestId } = (route && route.params) || {};
   const request = requests.find(r => r.id === requestId);
   
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [acceptingFriendId, setAcceptingFriendId] = useState(null);
-  const [proposedStartTime, setProposedStartTime] = useState(request.startTime);
+  const [proposedStartTime, setProposedStartTime] = useState(
+    request && request.startTime ? request.startTime : '10:00'
+  );
+  const [showCancelReason, setShowCancelReason] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   if (!request) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.content}>
-          <Text style={styles.errorText}>{t('details.notFound')}</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{t('details.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   const responses = request.responses || {};
-  const requestFriends = request.friendIds.map((friendId) => {
+  const requestFriends = (request.friendIds || []).map((friendId) => {
     const friend = friends.find((f) => f.id === friendId);
     if (friend) {
       return friend;
     }
     const response = responses[friendId] || {};
+    const details = (request.friendDetails && request.friendDetails[friendId]) || {};
     return {
       id: friendId,
-      displayName: response.responderName || '',
-      username: response.responderUsername || '',
-      photoURL: response.responderPhotoURL || '',
+      displayName: response.responderName || details.displayName || '',
+      username: response.responderUsername || details.username || '',
+      email: details.email || '',
+      photoURL: response.responderPhotoURL || details.photoURL || '',
     };
   });
   const requestFriendLabel = (friend) =>
     friend.displayName || friend.username || friend.email || friend.id;
-  const hasAcceptedResponses = Object.keys(responses).length > 0;
   const isCreator = request.creatorId === userId;
   const isCancelled = request.status === 'cancelled';
+  const isExpired = request.status === 'expired';
   const isCompleted = request.status === 'completed';
   const acceptedBy = Object.values(responses)
-    .filter((resp) => resp.status === 'accepted')
+    .filter((resp) => resp?.status === 'accepted')
     .map((resp) => resp.responderName || resp.responderUsername || resp.responderId)
     .filter(Boolean);
   const declinedBy = Object.values(responses)
-    .filter((resp) => resp.status === 'declined')
+    .filter((resp) => resp?.status === 'declined')
     .map((resp) => resp.responderName || resp.responderUsername || resp.responderId)
     .filter(Boolean);
+
+  const playersNeeded = request.playersNeeded || 2;
+  const requiredAcceptances = Math.max(playersNeeded - 1, 1);
+  const acceptedCount = Object.values(responses).filter((r) => r?.status === 'accepted').length;
+  const isMatchFull = acceptedCount >= requiredAcceptances;
+
+  const isConfirmedOrCompleted = request.status === 'confirmed' || request.status === 'completed';
+  const participantsList = isConfirmedOrCompleted || isCancelled
+    ? [
+        {
+          id: request.creatorId,
+          displayName: request.creatorDisplayName || '',
+          username: request.creatorUsername || '',
+          email: '',
+          photoURL: request.creatorPhotoURL || '',
+          isCreator: true,
+        },
+        ...requestFriends.filter((f) => f?.id && responses[f.id]?.status === 'accepted'),
+      ]
+    : [
+        {
+          id: request.creatorId,
+          displayName: request.creatorDisplayName || '',
+          username: request.creatorUsername || '',
+          email: '',
+          photoURL: request.creatorPhotoURL || '',
+          isCreator: true,
+        },
+        ...requestFriends,
+      ];
 
   const timeStringToDate = (timeString) => {
     const [hours, minutes] = timeString.split(':').map(Number);
@@ -82,15 +120,32 @@ export default function RequestsScreen({ navigation, route }) {
     return date;
   };
 
+  const timeToMinutes = (timeString) => {
+    const [hours, minutes] = (timeString || '00:00').split(':').map(Number);
+    return hours * 60 + (minutes || 0);
+  };
+
+  const isRequestExpired = () => {
+    const [y, m, d] = (request.date || '').split('-').map(Number);
+    if (!y || !m || !d) return false;
+    const startMins = timeToMinutes(request.startTime || '00:00');
+    const endMins = timeToMinutes(request.endTime || '23:59');
+    const isNextDay = endMins <= startMins;
+    const [endHours, endMinutes] = (request.endTime || '23:59').split(':').map(Number);
+    const endDate = isNextDay ? new Date(y, m - 1, d + 1, endHours || 0, endMinutes || 0, 0, 0) : new Date(y, m - 1, d, endHours || 23, endMinutes || 59, 0, 0);
+    return endDate < new Date();
+  };
+
   const handleAcceptTime = (friendId) => {
     setAcceptingFriendId(friendId);
     setSelectedTime(timeStringToDate(proposedStartTime));
     setShowTimePicker(true);
   };
 
-  const timeToMinutes = (timeString) => {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return hours * 60 + minutes;
+  const getEffectiveEndMinutes = (startStr, endStr) => {
+    const start = timeToMinutes(startStr);
+    const end = timeToMinutes(endStr);
+    return end <= start ? end + 24 * 60 : end;
   };
 
   const minutesToTime = (totalMinutes) => {
@@ -109,25 +164,30 @@ export default function RequestsScreen({ navigation, route }) {
     return minutesToTime(startMinutes + duration);
   };
 
-  const sendProposal = (startTime) => {
-    const duration = request.durationMinutes;
-    if (duration) {
-      const requestStart = timeToMinutes(request.startTime);
-      const requestEnd = timeToMinutes(request.endTime);
-      const proposedStartMinutes = timeToMinutes(startTime);
-      const proposedEndMinutes = proposedStartMinutes + duration;
+  const sendProposal = async (startTime) => {
+    try {
+      const duration = request.durationMinutes;
+      if (duration) {
+        const requestStart = timeToMinutes(request.startTime);
+        const requestEnd = getEffectiveEndMinutes(request.startTime, request.endTime);
+        const proposedStartMinutes = timeToMinutes(startTime);
+        const proposedEndMinutes = proposedStartMinutes + duration;
 
-      if (proposedStartMinutes < requestStart || proposedEndMinutes > requestEnd) {
-        Alert.alert(t('request.errorTime'), t('details.durationOutOfRange'));
-        return;
+        if (proposedStartMinutes < requestStart || proposedEndMinutes > requestEnd) {
+          Alert.alert(t('request.errorTime'), t('details.durationOutOfRange'));
+          return;
+        }
+
+        const proposedEnd = minutesToTime(proposedEndMinutes);
+        await acceptTimeProposal(request.id, userId, startTime, proposedEnd);
+      } else {
+        await acceptTimeProposal(request.id, userId, startTime, null);
       }
-
-      const proposedEnd = minutesToTime(proposedEndMinutes);
-      acceptTimeProposal(request.id, userId, startTime, proposedEnd);
-    } else {
-      acceptTimeProposal(request.id, userId, startTime, null);
+      Alert.alert(t('request.success'), t('details.matchConfirmed'));
+    } catch (err) {
+      const message = err.message === 'MATCH_FULL' ? t('details.matchFullError') : (err.message || t('auth.errorGeneric'));
+      Alert.alert(t('auth.loginTitle'), message);
     }
-    Alert.alert(t('request.success'), t('details.accepted'));
   };
 
   const confirmTimeAcceptance = (event, time) => {
@@ -147,7 +207,7 @@ export default function RequestsScreen({ navigation, route }) {
     }
 
     const startRange = timeToMinutes(request.startTime);
-    const endRange = timeToMinutes(request.endTime);
+    const endRange = getEffectiveEndMinutes(request.startTime, request.endTime);
     const latestStart = endRange - request.durationMinutes;
     const suggestions = [];
     const step = 30;
@@ -161,28 +221,6 @@ export default function RequestsScreen({ navigation, route }) {
       }
     }
     return suggestions;
-  };
-
-  const handleConfirmMatch = () => {
-    if (!isCreator) {
-      Alert.alert('Error', t('details.onlyCreatorConfirm'));
-      return;
-    }
-    if (!hasAcceptedResponses) {
-      Alert.alert('Error', t('details.errorNoAcceptances'));
-      return;
-    }
-
-    const hasDeclined = Object.values(responses).some((resp) => resp.status === 'declined');
-    if (hasDeclined) {
-      Alert.alert('Error', t('details.hasDeclines'));
-      return;
-    }
-    
-    confirmMatch(request.id);
-    Alert.alert(t('request.success'), t('details.matchConfirmed'), [
-      { text: t('common.ok'), onPress: () => navigation.goBack() }
-    ]);
   };
 
   const handleCompleteMatch = () => {
@@ -220,6 +258,71 @@ export default function RequestsScreen({ navigation, route }) {
     );
   };
 
+  const handleCancelConfirmedMatch = () => {
+    const trimmedReason = cancelReason.trim();
+    if (!trimmedReason) {
+      Alert.alert(t('details.cancelReasonRequired'));
+      return;
+    }
+    Alert.alert(
+      t('details.cancelMatch'),
+      t('details.cancelMatchConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('details.cancelMatch'),
+          style: 'destructive',
+          onPress: async () => {
+            await cancelRequest(request.id, trimmedReason);
+            setCancelReason('');
+            setShowCancelReason(false);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeclineMatch = () => {
+    Alert.alert(
+      t('details.declineMatch'),
+      t('details.declineMatchConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('details.decline'),
+          style: 'destructive',
+          onPress: async () => {
+            await declineResponse(request.id, userId, {
+              id: userId,
+              name: (currentUser && currentUser.displayName) || '',
+              username: (currentUser && currentUser.username) || '',
+              photoURL: (currentUser && currentUser.photoURL) || '',
+            });
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleWithdrawFromMatch = () => {
+    Alert.alert(
+      t('details.withdrawMatch'),
+      t('details.withdrawMatchConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('details.withdrawMatch'),
+          style: 'destructive',
+          onPress: async () => {
+            await withdrawFromMatch(request.id, userId);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
+
   const handleDeleteRequest = () => {
     Alert.alert(
       t('details.deleteRequest'),
@@ -238,9 +341,15 @@ export default function RequestsScreen({ navigation, route }) {
     );
   };
 
+  const isInvitedWithNoResponse =
+    !isCreator &&
+    (request.friendIds || []).includes(userId) &&
+    !(responses[userId] && responses[userId].status);
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    const locale = primaryLanguage === 'de' ? 'de-DE' : 'en-US';
+    return date.toLocaleDateString(locale, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -249,13 +358,14 @@ export default function RequestsScreen({ navigation, route }) {
   };
 
   const getFinalTimeRange = () => {
-    const accepted = Object.values(responses).filter(
-      (resp) => resp.status === 'accepted' && resp.acceptedStart
-    );
+    const accepted = Object.entries(responses)
+      .filter(([_, resp]) => resp?.status === 'accepted' && resp?.acceptedStart)
+      .map(([id, resp]) => ({ responderId: id, ...resp }));
     if (accepted.length === 0) {
       return null;
     }
-    const acceptedTime = accepted[0];
+    const myAccepted = accepted.find((r) => r.responderId === userId);
+    const acceptedTime = myAccepted || accepted[0];
     const endTime =
       acceptedTime.acceptedEnd ||
       (request.durationMinutes
@@ -272,15 +382,17 @@ export default function RequestsScreen({ navigation, route }) {
     : null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('details.title')}</Text>
-          <View style={styles.creatorAvatar}>
+          <Text style={[styles.title, { color: colors.headingBlue }]}>
+            {request.sport ? t('details.titleWithSport', { sport: request.sport }) : t('details.title')}
+          </Text>
+          <View style={[styles.creatorAvatar, { backgroundColor: colors.card3 }]}>
             {request.creatorPhotoURL ? (
               <Image source={{ uri: request.creatorPhotoURL }} style={styles.creatorAvatarImage} />
             ) : (
-              <Text style={styles.creatorAvatarText}>
+              <Text style={[styles.creatorAvatarText, { color: colors.text }]}>
                 {(request.creatorDisplayName || request.creatorUsername || '?')
                   .slice(0, 1)
                   .toUpperCase()}
@@ -297,96 +409,118 @@ export default function RequestsScreen({ navigation, route }) {
               <Text style={styles.completedText}>{t('details.completed')}</Text>
             </View>
           )}
+          {isExpired && (
+            <View style={styles.expiredBadge}>
+              <Text style={styles.expiredBadgeText}>{t('details.expired')}</Text>
+            </View>
+          )}
         </View>
 
-        <View style={styles.infoSection}>
-          <Text style={styles.label}>{t('details.date')}</Text>
-          <Text style={styles.value}>{formatDate(request.date)}</Text>
-        </View>
-
-        <View style={styles.infoSection}>
-          <Text style={styles.label}>{t('details.timeRange')}</Text>
-          <Text style={styles.value}>
-            {finalTime?.start
-              ? `${finalTime.start} - ${finalTime.end || request.endTime}`
-              : `${request.startTime} - ${request.endTime}`}
-          </Text>
-        </View>
-
-        {request.sport ? (
-          <View style={styles.infoSection}>
-            <Text style={styles.label}>{t('details.sport')}</Text>
-            <Text style={styles.value}>{request.sport}</Text>
+        {!isCreator && isMatchFull && !(responses[userId]?.status === 'accepted') && (
+          <View style={styles.matchFullBanner}>
+            <Text style={styles.matchFullBannerText}>{t('details.matchFullInfo')}</Text>
           </View>
-        ) : null}
+        )}
 
-        {request.durationMinutes ? (
-          <View style={styles.infoSection}>
-            <Text style={styles.label}>{t('details.duration')}</Text>
-            <Text style={styles.value}>{request.durationMinutes} min</Text>
+        <View style={[styles.infoGrid, { backgroundColor: colors.card }]}>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('details.date')}</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{formatDate(request.date)}</Text>
           </View>
-        ) : null}
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              {finalTime ? t('details.time') : t('details.timeRange')}
+            </Text>
+            <Text style={[styles.value, { color: colors.text }]}>
+              {finalTime && finalTime.start
+                ? `${finalTime.start} - ${finalTime.end || request.endTime}`
+                : `${request.startTime} - ${request.endTime}`}
+            </Text>
+          </View>
+          {request.sport ? (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{t('details.sport')}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{request.sport}</Text>
+            </View>
+          ) : null}
+          {request.location ? (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{t('details.location')}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{request.location}</Text>
+            </View>
+          ) : null}
+          {request.comment ? (
+            <View style={styles.commentRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{t('details.comment')}</Text>
+              <Text style={[styles.commentValue, { color: colors.text }]}>{request.comment}</Text>
+            </View>
+          ) : null}
+          {request.durationMinutes && !finalTime ? (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{t('details.duration')}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{request.durationMinutes} min</Text>
+            </View>
+          ) : null}
+        </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('details.friendsInvited')}</Text>
-          {requestFriends.map((friend) => {
+          <Text style={[styles.sectionTitle, { color: colors.headingBlue }]}>{t('details.participants')}</Text>
+          {participantsList.map((person) => {
+            const friend = person.isCreator ? person : { ...person, isCreator: false };
+            const isCreator = friend.id === request.creatorId;
             const response = responses[friend.id];
             const isCurrentUser = friend.id === userId;
-            const canRespond = isCurrentUser && request.creatorId !== userId;
+            const wasInvitedToRespond = isCurrentUser && request.creatorId !== userId;
+            const canRespond = wasInvitedToRespond && !isRequestExpired() && !isMatchFull;
             
             return (
-              <View key={friend.id} style={styles.friendCard}>
-                <Text style={styles.friendName}>
+              <TouchableOpacity
+                key={friend.id}
+                style={[styles.friendCard, { backgroundColor: colors.card2, borderColor: colors.border }]}
+                onPress={() => navigation.navigate('FriendProfile', { friendId: friend.id, friend })}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.friendName, { color: colors.text }]} numberOfLines={1}>
                   {requestFriendLabel(friend)}
+                  {isCreator && <Text style={[styles.organizerSymbol, { color: colors.warning }]}> ★</Text>}
                 </Text>
-                {isCancelled ? (
+                {isCancelled && friend.id === request.cancelledBy ? (
                   <View style={styles.responseContainer}>
                     <Text style={styles.cancelledText}>{t('details.cancelled')}</Text>
+                    {request.cancelReason ? (
+                      <Text style={[styles.cancelReasonText, { color: colors.textSecondary }]}>{request.cancelReason}</Text>
+                    ) : null}
                   </View>
-                ) : response?.status === 'proposed' && isCreator ? (
+                ) : isExpired ? (
                   <View style={styles.responseContainer}>
-                    <Text style={styles.acceptedText}>
-                      {t('details.proposed')} {response.acceptedStart}
-                      {response.acceptedEnd ? ` - ${response.acceptedEnd}` : ''}
-                    </Text>
-                    <View style={styles.responseActions}>
-                      <TouchableOpacity
-                        style={styles.acceptButton}
-                        onPress={() => acceptResponse(request.id, friend.id)}
-                      >
-                        <Text style={styles.acceptButtonText}>{t('details.accept')}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.declineButton}
-                        onPress={() => declineResponse(request.id, friend.id)}
-                      >
-                        <Text style={styles.declineButtonText}>{t('details.decline')}</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <Text style={styles.expiredText}>{t('details.expired')}</Text>
                   </View>
-                ) : response?.status === 'accepted' ? (
+                ) : isCreator || (response && response.status === 'accepted') ? null : (response && (response.status === 'declined' || response.status === 'withdrawn')) ? (
                   <View style={styles.responseContainer}>
-                    <Text style={styles.acceptedText}>
-                      {t('details.accepted')} {response.acceptedStart}
-                      {response.acceptedEnd ? ` - ${response.acceptedEnd}` : ''}
+                    <Text style={styles.declinedText}>
+                      {(response && response.status === 'withdrawn') ? t('details.withdrawn') : t('details.declined')}
                     </Text>
                   </View>
-                ) : response?.status === 'declined' ? (
+                ) : wasInvitedToRespond && isRequestExpired() && !(response && response.status) ? (
                   <View style={styles.responseContainer}>
-                    <Text style={styles.declinedText}>{t('details.declined')}</Text>
+                    <Text style={styles.expiredText}>{t('details.expired')}</Text>
+                  </View>
+                ) : wasInvitedToRespond && isMatchFull && !(response && response.status) ? (
+                  <View style={styles.responseContainer}>
+                    <Text style={styles.matchFullText}>{t('details.matchFull')}</Text>
                   </View>
                 ) : canRespond ? (
                   <View>
                     <View style={styles.timeRow}>
                       <TouchableOpacity
-                        style={styles.timePickerButton}
+                        style={[styles.timePickerButton, { backgroundColor: colors.card3, borderColor: colors.border }]}
                         onPress={() => handleAcceptTime(userId)}
                       >
-                        <Text style={styles.timePickerText}>
+                        <Text style={[styles.timePickerText, { color: colors.text }]}>
                           {t('details.startTime')}: {proposedStartTime}
                         </Text>
                       </TouchableOpacity>
-                      <Text style={styles.timePickerText}>
+                      <Text style={[styles.timePickerText, { color: colors.text }]}>
                         {t('details.endTime')}: {getProposedEnd(proposedStartTime, request.durationMinutes) || '--'}
                       </Text>
                     </View>
@@ -399,36 +533,33 @@ export default function RequestsScreen({ navigation, route }) {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.declineButton}
-                        onPress={() =>
-                          declineResponse(request.id, userId, {
-                            id: userId,
-                            name: currentUser?.displayName || '',
-                            username: currentUser?.username || '',
-                            photoURL: currentUser?.photoURL || '',
-                          })
-                        }
+                        onPress={handleDeclineMatch}
                       >
                         <Text style={styles.declineButtonText}>{t('details.decline')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 ) : (
-                  <Text style={styles.waitingText}>{t('details.waiting')}</Text>
+                  <Text style={[styles.waitingText, { color: colors.textSecondary }]}>{t('details.waiting')}</Text>
                 )}
 
-                {canRespond && request.durationMinutes && !isCancelled && (
+                {canRespond && request.durationMinutes && !isCancelled && !isExpired && request.status === 'pending' && (
                   <View style={styles.suggestionSection}>
-                    <Text style={styles.suggestionLabel}>{t('details.suggestedTimes')}</Text>
+                    <Text style={[styles.suggestionLabel, { color: colors.textSecondary }]}>{t('details.suggestedTimes')}</Text>
                     <View style={styles.suggestionRow}>
                       {getSuggestedTimes().map((slot) => {
                         const isSelected = proposedStartTime === slot.start;
                         return (
                         <TouchableOpacity
                           key={`${slot.start}-${slot.end}`}
-                          style={[styles.suggestionChip, isSelected && styles.suggestionChipSelected]}
+                          style={[
+                            styles.suggestionChip,
+                            { backgroundColor: colors.card3, borderColor: colors.border },
+                            isSelected && { borderColor: colors.primary, backgroundColor: 'rgba(111, 208, 139, 0.2)' },
+                          ]}
                           onPress={() => setProposedStartTime(slot.start)}
                         >
-                          <Text style={styles.suggestionChipText}>
+                          <Text style={[styles.suggestionChipText, { color: colors.text }]}>
                             {slot.start} - {slot.end}
                           </Text>
                         </TouchableOpacity>
@@ -437,20 +568,20 @@ export default function RequestsScreen({ navigation, route }) {
                     </View>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
 
-        {isCreator && (acceptedBy.length > 0 || declinedBy.length > 0) && (
+        {isCreator && request.status === 'pending' && !isExpired && (acceptedBy.length > 0 || declinedBy.length > 0) && (
           <View style={styles.section}>
             {acceptedBy.length > 0 && (
-              <Text style={styles.responseSummary}>
+              <Text style={[styles.responseSummary, { color: colors.textSecondary }]}>
                 {t('details.acceptedBy')}: {acceptedBy.join(', ')}
               </Text>
             )}
             {declinedBy.length > 0 && (
-              <Text style={styles.responseSummary}>
+              <Text style={[styles.responseSummary, { color: colors.textSecondary }]}>
                 {t('details.declinedBy')}: {declinedBy.join(', ')}
               </Text>
             )}
@@ -462,17 +593,9 @@ export default function RequestsScreen({ navigation, route }) {
             value={selectedTime}
             mode="time"
             display="spinner"
+            locale={primaryLanguage === 'de' ? 'de-DE' : undefined}
             onChange={confirmTimeAcceptance}
           />
-        )}
-
-        {hasAcceptedResponses && request.status !== 'confirmed' && !isCancelled && !isCompleted && isCreator && (
-          <TouchableOpacity
-            style={styles.confirmButton}
-            onPress={handleConfirmMatch}
-          >
-            <Text style={styles.confirmButtonText}>{t('details.confirmMatch')}</Text>
-          </TouchableOpacity>
         )}
 
         {request.status === 'confirmed' && !isCancelled && isCreator && (
@@ -484,7 +607,65 @@ export default function RequestsScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
 
-        {isCreator && request.status === 'pending' && !isCancelled && (
+        {request.status === 'confirmed' && !isCancelled && isCreator && (
+          <>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowCancelReason((prev) => !prev)}
+            >
+              <Text style={styles.cancelButtonText}>{t('details.cancelMatch')}</Text>
+            </TouchableOpacity>
+            {showCancelReason && (
+              <View style={[styles.cancelReasonCard, { backgroundColor: colors.card2, borderColor: colors.danger + '60' }]}>
+                <Text style={[styles.label, { color: colors.text }]}>{t('details.cancelReason')}</Text>
+                <TextInput
+                  style={[styles.cancelReasonInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  placeholder={t('details.cancelReasonPlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={cancelReason}
+                  onChangeText={setCancelReason}
+                  multiline
+                />
+                <View style={styles.cancelReasonActions}>
+                  <TouchableOpacity
+                    style={styles.cancelReasonConfirm}
+                    onPress={handleCancelConfirmedMatch}
+                  >
+                    <Text style={styles.cancelReasonConfirmText}>
+                      {t('details.cancelMatch')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.cancelReasonDismiss}
+                    onPress={() => setShowCancelReason(false)}
+                  >
+                    <Text style={styles.cancelReasonDismissText}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
+        {request.status === 'confirmed' && !isCancelled && !isCreator && responses[userId] && responses[userId].status === 'accepted' && (
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleWithdrawFromMatch}
+          >
+            <Text style={styles.cancelButtonText}>{t('details.withdrawMatch')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {isInvitedWithNoResponse && !isCancelled && !isExpired && !isMatchFull && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteRequest}
+          >
+            <Text style={styles.deleteButtonText}>{t('details.deleteRequest')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {isCreator && request.status === 'pending' && !isCancelled && !isExpired && (
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={handleCancelRequest}
@@ -493,7 +674,7 @@ export default function RequestsScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
 
-        {isCreator && isCancelled && (
+        {isCreator && (isCancelled || isExpired) && (
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={handleDeleteRequest}
@@ -515,39 +696,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 16,
   },
   creatorAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#e0e0e0',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
   },
   creatorAvatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   creatorAvatarText: {
     color: '#555',
     fontWeight: '600',
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#2c3e50',
   },
   confirmedBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#6FD08B',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
@@ -558,7 +739,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   completedBadge: {
-    backgroundColor: '#1565c0',
+    backgroundColor: '#5bb87a',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
@@ -569,42 +750,77 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
-  cancelledText: {
-    color: '#e53935',
-    fontWeight: '600',
+  expiredBadge: {
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginLeft: 8,
   },
-  infoSection: {
-    marginBottom: 20,
-    padding: 15,
+  expiredBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  cancelledText: {
+    fontSize: 12,
+    color: '#e53935',
+    fontWeight: '500',
+  },
+  cancelReasonText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  infoGrid: {
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+    marginBottom: 2,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#7f8c8d',
-    marginBottom: 5,
+    flex: 1,
   },
   value: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '600',
     color: '#2c3e50',
+    flex: 1,
+    textAlign: 'right',
+  },
+  commentRow: {
+    paddingVertical: 4,
+    marginBottom: 2,
+  },
+  commentValue: {
+    fontSize: 16,
+    color: '#2c3e50',
+    marginTop: 4,
   },
   section: {
-    marginTop: 20,
+    marginTop: 12,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 15,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#7f8c8d',
+    marginBottom: 6,
   },
   suggestionSection: {
-    marginTop: 10,
+    marginTop: 8,
   },
   suggestionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#7f8c8d',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   suggestionRow: {
     flexDirection: 'row',
@@ -613,110 +829,141 @@ const styles = StyleSheet.create({
   suggestionChip: {
     borderWidth: 1,
     borderColor: '#dee2e6',
-    borderRadius: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginRight: 8,
-    marginBottom: 8,
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginRight: 6,
+    marginBottom: 6,
     backgroundColor: '#f8f9fa',
   },
   suggestionChipSelected: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#e8f5e9',
+    borderColor: '#6FD08B',
+    backgroundColor: '#e3f2fd',
   },
   suggestionChipText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#2c3e50',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   friendCard: {
     backgroundColor: '#f8f9fa',
     borderWidth: 1,
-    borderColor: '#dee2e6',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
+    borderColor: '#e9ecef',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 4,
   },
   friendName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
     color: '#2c3e50',
-    marginBottom: 10,
+    marginBottom: 2,
+  },
+  organizerSymbol: {
+    fontSize: 12,
+    color: '#f9a825',
   },
   responseContainer: {
-    marginTop: 5,
+    marginTop: 2,
   },
   acceptedText: {
-    color: '#4CAF50',
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#6FD08B',
+    fontWeight: '500',
   },
   proposedText: {
-    color: '#1976d2',
+    color: '#6FD08B',
     fontWeight: '600',
   },
   declinedText: {
+    fontSize: 12,
     color: '#e53935',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   responseActions: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: 6,
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 4,
   },
   timePickerButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#dee2e6',
-    borderRadius: 6,
+    borderRadius: 4,
     backgroundColor: '#f8f9fa',
-    marginRight: 10,
+    marginRight: 8,
   },
   timePickerText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#2c3e50',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   declineButton: {
-    marginLeft: 10,
+    marginLeft: 8,
     borderWidth: 1,
     borderColor: '#e53935',
-    borderRadius: 6,
-    padding: 10,
+    borderRadius: 4,
+    padding: 8,
     alignItems: 'center',
   },
   declineButtonText: {
     color: '#e53935',
+    fontSize: 12,
     fontWeight: '600',
   },
   acceptButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: '#6FD08B',
+    borderRadius: 4,
+    padding: 8,
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 4,
   },
   acceptButtonText: {
     color: '#fff',
+    fontSize: 12,
     fontWeight: '600',
   },
   waitingText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#95a5a6',
     fontStyle: 'italic',
   },
+  expiredText: {
+    fontSize: 12,
+    color: '#e65100',
+    fontWeight: '500',
+  },
+  matchFullText: {
+    fontSize: 12,
+    color: '#ff9800',
+    fontWeight: '500',
+  },
+  matchFullBanner: {
+    backgroundColor: '#fff3e0',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9800',
+  },
+  matchFullBannerText: {
+    fontSize: 14,
+    color: '#e65100',
+    fontWeight: '500',
+  },
   responseSummary: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#7f8c8d',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   confirmButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#7ed99a',
     borderRadius: 8,
     padding: 18,
     alignItems: 'center',
@@ -729,34 +976,82 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   completeButton: {
-    backgroundColor: '#1565c0',
-    borderRadius: 8,
-    padding: 18,
+    backgroundColor: '#5bb87a',
+    borderRadius: 6,
+    padding: 8,
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 20,
+    marginTop: 6,
+    marginBottom: 6,
   },
   completeButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
   },
   cancelButton: {
-    marginTop: 12,
-    padding: 18,
-    borderRadius: 8,
+    marginTop: 4,
+    padding: 8,
+    borderRadius: 6,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e53935',
   },
   cancelButtonText: {
     color: '#e53935',
-    fontSize: 18,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelReasonCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#f0b4b4',
+    backgroundColor: '#fff5f5',
+  },
+  cancelReasonInput: {
+    marginTop: 8,
+    minHeight: 80,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#fff',
+    textAlignVertical: 'top',
+  },
+  cancelReasonActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  cancelReasonConfirm: {
+    flex: 1,
+    marginRight: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#e53935',
+    alignItems: 'center',
+  },
+  cancelReasonConfirmText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  cancelReasonDismiss: {
+    flex: 1,
+    marginLeft: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e53935',
+    alignItems: 'center',
+  },
+  cancelReasonDismissText: {
+    color: '#e53935',
     fontWeight: 'bold',
   },
   deleteButton: {
-    marginTop: 12,
-    padding: 18,
+    marginTop: 8,
+    padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,

@@ -8,11 +8,24 @@ import {
   ScrollView,
   Share,
   Alert,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
+import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+
+const appVersion = Constants.expoConfig?.version || require('../package.json').version || '0.3.2';
+
+const HEADER_HEIGHT = Platform.select({ ios: 44, android: 56 });
 
 export default function MenuScreen({ navigation }) {
   const { t } = useLanguage();
+  const { friendRequests = [] } = useApp();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const friendRequestCount = friendRequests?.length || 0;
 
   const handleShare = async () => {
     try {
@@ -41,15 +54,6 @@ export default function MenuScreen({ navigation }) {
 
   const menuItems = [
     {
-      id: 'profile',
-      title: t('menu.profile'),
-      icon: '👤',
-      screen: 'Profile',
-      onPress: () => {
-        navigation.navigate('Profile');
-      },
-    },
-    {
       id: 'friends',
       title: t('menu.friends'),
       icon: '👥',
@@ -57,15 +61,6 @@ export default function MenuScreen({ navigation }) {
       onPress: () => {
         console.log('Friends button pressed');
         navigation.navigate('Friends');
-      },
-    },
-    {
-      id: 'matchHistory',
-      title: t('menu.matchHistory'),
-      icon: '📊',
-      screen: 'MatchHistory',
-      onPress: () => {
-        navigation.navigate('MatchHistory');
       },
     },
     {
@@ -77,7 +72,7 @@ export default function MenuScreen({ navigation }) {
     },
     {
       id: 'settings',
-      title: t('menu.language'),
+      title: t('menu.options'),
       icon: '⚙️',
       screen: 'Settings',
       onPress: () => {
@@ -105,38 +100,59 @@ export default function MenuScreen({ navigation }) {
     },
   ];
 
+  const headerTotalHeight = insets.top + HEADER_HEIGHT;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('menu.title')}</Text>
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { height: headerTotalHeight, paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>{t('menu.title')}</Text>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.menuItem}
-            onPress={() => {
-              console.log(`Menu item pressed: ${item.id}`);
-              item.onPress();
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuItemLeft}>
-              <Text style={styles.menuItemIcon}>{item.icon}</Text>
-              <Text style={styles.menuItemTitle}>{item.title}</Text>
-            </View>
-            <Text style={styles.menuItemArrow}>›</Text>
-          </TouchableOpacity>
-        ))}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: 24 + insets.bottom }]}
+      >
+        {menuItems.map((item) => {
+          const showBadge = item.id === 'friends' && friendRequestCount > 0;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.menuItem,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                console.log(`Menu item pressed: ${item.id}`);
+                item.onPress();
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <Text style={styles.menuItemIcon}>{item.icon}</Text>
+                <Text style={[styles.menuItemTitle, { color: colors.text }]}>{item.title}</Text>
+                  {showBadge && (
+                  <View style={styles.menuBadge}>
+                    <Text style={styles.menuBadgeText}>
+                      {friendRequestCount > 9 ? '9+' : friendRequestCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.menuItemArrow}>›</Text>
+            </TouchableOpacity>
+          );
+        })}
+        <Text style={[styles.versionText, { color: colors.textMuted }]}>v{appVersion}</Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -146,13 +162,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
+    justifyContent: 'flex-end',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: '#6FD08B',
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    backgroundColor: '#4CAF50',
+    height: HEADER_HEIGHT,
+    paddingHorizontal: 16,
   },
   headerTitle: {
     fontSize: 24,
@@ -166,6 +186,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 6,
   },
   closeButtonText: {
     color: '#fff',
@@ -177,6 +198,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 10,
+    paddingBottom: 24,
   },
   menuItem: {
     flexDirection: 'row',
@@ -203,9 +225,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2c3e50',
   },
+  menuBadge: {
+    marginLeft: 10,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#ff9800',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  menuBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   menuItemArrow: {
     fontSize: 24,
     color: '#7f8c8d',
     fontWeight: '300',
+  },
+  versionText: {
+    fontSize: 12,
+    color: '#95a5a6',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });

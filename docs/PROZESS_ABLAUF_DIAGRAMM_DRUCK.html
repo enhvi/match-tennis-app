@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prozessablauf – Find A Match</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, Segoe UI, sans-serif;
+      line-height: 1.45;
+      color: #1a1a1a;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    h2 { font-size: 1.15rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.35rem; }
+    p.lead { color: #444; margin-bottom: 1.5rem; }
+    .hint {
+      background: #f0f7ff;
+      border: 1px solid #b8d4f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+    }
+    .hint strong { display: block; margin-bottom: 6px; }
+    pre.diagram {
+      font-family: "Consolas", "Cascadia Mono", "Lucida Console", monospace;
+      font-size: 8.5px;
+      line-height: 1.2;
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px 10px;
+      overflow-x: auto;
+      white-space: pre;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    hr { border: none; border-top: 1px solid #ddd; margin: 2rem 0; }
+    @media print {
+      body { padding: 12mm; max-width: none; }
+      .hint { break-inside: avoid; }
+      pre.diagram { font-size: 7.5px; page-break-inside: avoid; }
+      h2 { page-break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Prozessablauf – Visuelle Darstellung</h1>
+  <p class="lead">Anfrage- und Bestätigungsablauf mit Flussdiagrammen (Find A Match).</p>
+
+  <div class="hint">
+    <strong>Als PDF speichern (Windows)</strong>
+    Diese Seite im Browser öffnen → <kbd>Strg</kbd>+<kbd>P</kbd> → Drucker: <strong>Microsoft Print to PDF</strong> oder <strong>Als PDF speichern</strong> → Speichern.
+  </div>
+
+  <h2>1. Gesamtübersicht</h2>
+  <pre class="diagram">┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CREATOR ERSTELLT ANFRAGE                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Datum │ Zeitfenster │ Sport │ Freunde │ Spieleranzahl                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+                              ┌─────────────────┐
+                              │    PENDING      │
+                              │  (Anfrage offen)│
+                              └────────┬────────┘
+                                       │
+         ┌─────────────────────────────┼─────────────────────────────┐
+         │                             │                             │
+         ▼                             ▼                             ▼
+┌────────────────┐           ┌────────────────┐           ┌────────────────┐
+│ EINGELADENER   │           │ EINGELADENER   │           │ ZEIT ABGELAUFEN│
+│ LEHNT AB       │           │ AKZEPTIERT     │           │ + zu wenig    │
+└───────┬────────┘           └───────┬────────┘           └───────┬────────┘
+        │                           │                           │
+        ▼                           ▼                           ▼
+┌────────────────┐           ┌────────────────┐           ┌────────────────┐
+│   DECLINED     │           │ Genug Zusagen? │           │    EXPIRED     │
+│ (bleibt sicht- │           └────────┬───────┘           └────────────────┘
+│  bar für       │                    │
+│  Creator)      │         ┌──────────┴──────────┐
+└────────────────┘         │                     │
+                           ▼                     ▼
+                    ┌─────────────┐       ┌─────────────┐
+                    │  CONFIRMED  │       │   PENDING   │
+                    │ (Match fest) │       │ (wartet)   │
+                    └──────┬──────┘       └─────────────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         │                 │                 │
+         ▼                 ▼                 ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ Creator      │  │ Teilnehmer   │  │ Match wird   │
+│ storniert    │  │ zieht zurück │  │ gespielt     │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                 │
+       ▼                 ▼                 ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  CANCELLED    │  │ PENDING oder │  │  COMPLETED   │
+│              │  │  CONFIRMED   │  │              │
+└──────────────┘  └──────────────┘  └──────────────┘</pre>
+
+  <hr />
+
+  <h2>2. Perspektive: Creator</h2>
+  <pre class="diagram">                    ┌─────────────────────────┐
+                    │   Creator erstellt       │
+                    │   Match-Anfrage          │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   PENDING               │
+                    │   "Meine Anfragen"      │
+                    └────────────┬────────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌───────────────────┐      ┌───────────────┐
+│ Stornieren    │      │ Warten auf        │      │ Zeit läuft    │
+│ (mit Grund)   │      │ Antworten          │      │ ab            │
+└───────┬───────┘      └─────────┬─────────┘      └───────┬───────┘
+        │                        │                      │
+        ▼                        ▼                      ▼
+┌───────────────┐      ┌───────────────────┐      ┌───────────────┐
+│  CANCELLED    │      │  CONFIRMED        │      │   EXPIRED     │
+└───────────────┘      └─────────┬─────────┘      └───────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+                    ▼                         ▼
+           ┌───────────────┐          ┌───────────────┐
+           │ "Als gespielt  │          │ Teilnehmer    │
+           │  markieren"    │          │ zieht zurück  │
+           └───────┬───────┘          └───────┬───────┘
+                   │                          │
+                   ▼                          ▼
+           ┌───────────────┐          ┌───────────────┐
+           │  COMPLETED     │          │   PENDING     │
+           └───────────────┘          │ (zurück in    │
+                                      │ Meine Anfragen)│
+                                      └───────────────┘</pre>
+
+  <hr />
+
+  <h2>3. Perspektive: Eingeladener</h2>
+  <pre class="diagram">                    ┌─────────────────────────┐
+                    │ Benachrichtigung:        │
+                    │ "Match-Anfrage"           │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │ "Anfragen von Freunden" │
+                    └────────────┬────────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌───────────────────┐      ┌───────────────┐
+│ ABLEHNEN      │      │ AKZEPTIEREN       │      │ (nichts tun)  │
+│               │      │ (Zeit wählen)     │      │                │
+└───────┬───────┘      └─────────┬─────────┘      └───────┬───────┘
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌───────────────────┐      ┌───────────────┐
+│ Anfrage       │      │ Match bestätigt?  │      │ Bleibt in     │
+│ verschwindet  │      └─────────┬─────────┘      │ Liste         │
+│ aus Liste     │                │                 └───────────────┘
+└───────────────┘      ┌─────────┴─────────┐
+                       │                   │
+                       ▼                   ▼
+               ┌───────────────┐   ┌───────────────┐
+               │  CONFIRMED     │   │   PENDING     │
+               │ "Bestätigte    │   │ (wartet auf   │
+               │  Matches"      │   │  andere)      │
+               └───────┬───────┘   └───────────────┘
+                       │
+                       ▼
+               ┌───────────────┐
+               │ Zusage        │
+               │ zurückziehen? │
+               └───────┬───────┘
+                       │
+                       ▼
+               ┌───────────────┐
+               │ WITHDRAWN     │
+               │ Anfrage       │
+               │ verschwindet  │
+               └───────────────┘</pre>
+
+  <hr />
+
+  <h2>4. Status-Übergänge (Zustandsdiagramm)</h2>
+  <pre class="diagram">                              ┌─────────────┐
+                              │   (Start)   │
+                              └──────┬──────┘
+                                     │ sendRequest
+                                     ▼
+┌─────────────┐     expire    ┌─────────────┐     accept     ┌─────────────┐
+│   EXPIRED   │◄──────────────│   PENDING   │───────────────►│  CONFIRMED  │
+└─────────────┘               └──────┬──────┘                └──────┬─────┘
+       ▲                             │                             │
+       │                             │ cancel                       │ complete
+       │                             │ decline                      │
+       │                             ▼                             ▼
+       │                    ┌─────────────┐                ┌─────────────┐
+       └────────────────────│  CANCELLED  │                │  COMPLETED  │
+                            └─────────────┘                └─────────────┘
+                                     ▲
+                                     │ withdraw
+                                     │
+                            ┌────────┴────────┐
+                            │  CONFIRMED      │
+                            │  oder PENDING  │
+                            └─────────────────┘</pre>
+
+  <hr />
+
+  <h2>5. Benachrichtigungen im Ablauf</h2>
+  <pre class="diagram">CREATOR                          EINGELADENER
+   │                                    │
+   │  ◄── matchRequest ─────────────────│  (Anfrage erstellt)
+   │                                    │
+   │  ◄── matchDeclined ────────────────│  (Eingeladener lehnt ab)
+   │                                    │
+   │  ◄── matchWithdrawn ───────────────│  (Eingeladener zieht zurück)
+   │                                    │
+   │  ◄── matchConfirmed ───────────────│  (Genug Akzeptanzen)
+   │  ───────────── matchConfirmed ────►│
+   │                                    │
+   │  ◄── matchExpired ─────────────────│  (Zeit abgelaufen, automatisch)
+   │                                    │
+   │  ───────────── matchCancelled ────►│  (Creator storniert)
+   │                                    │</pre>
+
+  <hr />
+
+  <h2>6. Entscheidungsbaum: Genug Akzeptanzen?</h2>
+  <pre class="diagram">                    requiredAcceptances = playersNeeded - 1
+                    (z.B. 2 Spieler → 1 Akzeptanz nötig)
+                                        │
+                                        ▼
+                    ┌───────────────────────────────────┐
+                    │ acceptedCount >= required?        │
+                    │ UND declinedCount === 0?          │
+                    └───────────────────┬────────────────┘
+                                       │
+                        ┌──────────────┴──────────────┐
+                        │ JA                         │ NEIN
+                        ▼                            ▼
+                ┌───────────────┐            ┌───────────────┐
+                │  CONFIRMED    │            │   PENDING     │
+                │  Match fest!  │            │  Wartet weiter│
+                └───────────────┘            └───────────────┘</pre>
+
+  <p style="margin-top: 2rem; font-size: 0.85rem; color: #666;">Find A Match – Dokumentation</p>
+</body>
+</html>

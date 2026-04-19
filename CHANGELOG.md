@@ -5,6 +5,59 @@ All notable changes to Find A Match will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-04-19
+
+### Fixed
+- Messages: conversations appear under Nachrichten after sending (query no longer requires a missing Firestore composite index; client-side sort by `lastMessageAt`)
+
+### Changed
+- Messages: show a clear error banner if the conversation list fails to load (with translations)
+
+---
+
+## [0.3.1] - 2026-02-22
+
+### Added
+- Options screen: language selection and dark mode toggle (renamed from "Sprache")
+- ThemeContext with light/dark colors and AsyncStorage persistence
+- Graduated dark backgrounds (card, card2, card3) for match screens
+- Matte blue headings (headingBlue) for section titles in dark mode
+
+### Changed
+- Menu item "Sprache" renamed to "Optionen"
+- Match screens (Request, Requests): full dark mode theming with white text
+- Home screen cards use theme colors in dark mode
+
+### Fixed
+- React Navigation theme: spread DefaultTheme to fix "cannot read property regular of undefined"
+
+---
+
+## [0.3.0] - 2026-02-17
+
+### Added
+- Sport-specific card backgrounds (colors + optional images: tennis.png, padel.png, golf.png, basketball.png)
+- Friends of friends: tappable friends list – tap to view friend-of-friend's profile
+- "Add Friend" button when viewing a non-friend's profile (e.g. friend of friend)
+
+### Changed
+- Home: dark overlay and white text on image backgrounds for readability
+- Request details: compact info grid layout, removed "Akzeptiert von" for confirmed matches
+- Version display: now dynamic from package.json (was hardcoded)
+
+---
+
+## [0.2.7] - 2026-02-17
+
+### Changed
+- Home: compact layout for own requests – date/time left, avatar right in same row
+- All navigation headers now translated (Language/Sprache, Friends/Freunde, Profile/Profil, Account/Konto, etc.)
+- Removed duplicate content titles from Settings, Friends, Account, Match History screens
+- Match History: dynamic header when viewing a friend's history (e.g. "Match-Verlauf (Max)")
+- Auth screens: Login and Signup headers translated
+
+---
+
 ## [0.2.6] - 2026-01-24
 
 ### Added

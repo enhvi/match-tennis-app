@@ -11,6 +11,10 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import { GOOGLE_WEB_CLIENT_ID } from '../googleAuthConfig';
+import { usesEmailPassword, usesGoogle } from '../utils/authProviders';
 
 export default function AccountScreen({ navigation }) {
   const {
@@ -20,13 +24,19 @@ export default function AccountScreen({ navigation }) {
     updatePasswordWithPassword,
     sendPasswordReset,
     deleteAccountWithPassword,
+    deleteAccountWithGoogleIdToken,
     logout,
   } = useAuth();
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const [email, setEmail] = useState(profile?.email || user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showGoogleDeleteStep, setShowGoogleDeleteStep] = useState(false);
+
+  const hasPassword = usesEmailPassword(user);
+  const hasGoogle = usesGoogle(user);
 
   useEffect(() => {
     setEmail(profile?.email || user?.email || '');
@@ -110,76 +120,143 @@ export default function AccountScreen({ navigation }) {
     );
   };
 
+  const runGoogleDelete = async (idToken) => {
+    try {
+      setSaving(true);
+      await deleteAccountWithGoogleIdToken(idToken);
+      setShowGoogleDeleteStep(false);
+    } catch (error) {
+      Alert.alert(t('settings.deleteAccount'), error.message || t('settings.deleteError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const promptGoogleDelete = () => {
+    Alert.alert(t('settings.deleteAccount'), t('settings.deleteWarning'), [
+      { text: t('common.cancel'), style: 'cancel', onPress: () => setShowGoogleDeleteStep(false) },
+      {
+        text: t('settings.deleteConfirm'),
+        style: 'destructive',
+        onPress: () => setShowGoogleDeleteStep(true),
+      },
+    ]);
+  };
+
   const handleLogout = async () => {
     await logout();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{t('settings.account')}</Text>
-
         <View style={styles.section}>
-          <Text style={styles.sectionSubtitle}>{t('settings.accountSubtitle')}</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>{t('settings.accountSubtitle')}</Text>
 
-          <Text style={styles.label}>{t('settings.email')}</Text>
-          <TextInput
-            style={styles.input}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
+          {hasGoogle && !hasPassword && (
+            <Text style={[styles.googleHint, { color: colors.textSecondary, marginBottom: 16 }]}>
+              {t('settings.googleOnlyHint')}
+            </Text>
+          )}
 
-          <Text style={styles.label}>{t('settings.currentPassword')}</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholder="••••••••"
-          />
+          {!GOOGLE_WEB_CLIENT_ID && (
+            <Text style={[styles.googleHint, { color: colors.warning || '#c0392b', marginBottom: 12 }]}>
+              {t('settings.googleNotConfigured')}
+            </Text>
+          )}
 
-          <Text style={styles.label}>{t('settings.newPassword')}</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholder="••••••••"
-          />
+          <Text style={[styles.label, { color: colors.text }]}>{t('settings.email')}</Text>
+          {hasPassword ? (
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+          ) : (
+            <Text style={[styles.readOnlyEmail, { color: colors.text, marginBottom: 16 }]}>
+              {user?.email || profile?.email || '—'}
+            </Text>
+          )}
 
-          <TouchableOpacity
-            style={[styles.primaryButton, saving && styles.disabledButton]}
-            onPress={handleUpdateEmail}
-            disabled={saving}
-          >
-            <Text style={styles.primaryButtonText}>{t('settings.updateEmail')}</Text>
-          </TouchableOpacity>
+          {hasPassword && (
+            <>
+              <Text style={[styles.subSectionTitle, { color: colors.text }]}>{t('settings.passwordSectionTitle')}</Text>
 
-          <TouchableOpacity
-            style={[styles.secondaryButton, saving && styles.disabledButton]}
-            onPress={handleUpdatePassword}
-            disabled={saving}
-          >
-            <Text style={styles.secondaryButtonText}>{t('settings.updatePassword')}</Text>
-          </TouchableOpacity>
+              <Text style={[styles.label, { color: colors.text }]}>{t('settings.currentPassword')}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                secureTextEntry
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="••••••••"
+              />
 
-          <TouchableOpacity
-            style={[styles.linkButton, saving && styles.disabledButton]}
-            onPress={handleResetPassword}
-            disabled={saving}
-          >
-            <Text style={styles.linkButtonText}>{t('settings.resetPassword')}</Text>
-          </TouchableOpacity>
+              <Text style={[styles.label, { color: colors.text }]}>{t('settings.newPassword')}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                secureTextEntry
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="••••••••"
+              />
 
-          <TouchableOpacity
-            style={[styles.dangerButton, saving && styles.disabledButton]}
-            onPress={handleDeleteAccount}
-            disabled={saving}
-          >
-            <Text style={styles.dangerButtonText}>{t('settings.deleteAccount')}</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.primaryButton, saving && styles.disabledButton]}
+                onPress={handleUpdateEmail}
+                disabled={saving}
+              >
+                <Text style={styles.primaryButtonText}>{t('settings.updateEmail')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.secondaryButton, saving && styles.disabledButton]}
+                onPress={handleUpdatePassword}
+                disabled={saving}
+              >
+                <Text style={styles.secondaryButtonText}>{t('settings.updatePassword')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.linkButton, saving && styles.disabledButton]}
+                onPress={handleResetPassword}
+                disabled={saving}
+              >
+                <Text style={styles.linkButtonText}>{t('settings.resetPassword')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.dangerButton, saving && styles.disabledButton]}
+                onPress={handleDeleteAccount}
+                disabled={saving}
+              >
+                <Text style={styles.dangerButtonText}>{t('settings.deleteAccount')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {hasGoogle && !hasPassword && (
+            <>
+              {!showGoogleDeleteStep ? (
+                <TouchableOpacity
+                  style={[styles.dangerButton, saving && styles.disabledButton]}
+                  onPress={promptGoogleDelete}
+                  disabled={saving}
+                >
+                  <Text style={styles.dangerButtonText}>{t('settings.deleteAccount')}</Text>
+                </TouchableOpacity>
+              ) : (
+                <GoogleSignInButton
+                  mode="reauthenticate"
+                  label={t('settings.googleDeleteLabel')}
+                  disabled={saving}
+                  onIdToken={runGoogleDelete}
+                  onError={(msg) => Alert.alert(t('settings.deleteAccount'), msg)}
+                />
+              )}
+            </>
+          )}
 
           <TouchableOpacity
             style={[styles.logoutButton, saving && styles.disabledButton]}
@@ -205,13 +282,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
   section: {
     marginBottom: 30,
   },
@@ -219,6 +289,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7f8c8d',
     marginBottom: 20,
+  },
+  readOnlyEmail: {
+    fontSize: 16,
+    paddingVertical: 4,
+  },
+  subSectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  googleHint: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   label: {
     fontSize: 14,
@@ -235,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   primaryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#6FD08B',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -249,7 +333,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   secondaryButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#7ed99a',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -264,7 +348,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   linkButtonText: {
-    color: '#1976d2',
+    color: '#6FD08B',
     fontWeight: '600',
   },
   dangerButton: {

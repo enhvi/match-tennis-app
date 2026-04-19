@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,37 +9,99 @@ import {
   FlatList,
   Alert,
   Image,
+  ImageBackground,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import Constants from 'expo-constants';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { useNotifications } from '../context/NotificationContext';
+import { isPendingCreatorUnfilledPastDeadline } from '../utils/requestExpiry';
+
+const appVersion = Constants.expoConfig?.version || require('../package.json').version || '0.3.2';
 
 export default function HomeScreen({ navigation }) {
-  const { requests, friends, currentUser } = useApp();
+  const { requests, friends, currentUser, cancelRequest } = useApp();
   const { t, primaryLanguage } = useLanguage();
+  const { colors: themeColors } = useTheme();
+  const { prefs: notificationPrefs } = useNotifications();
+  const requestExpiryTiming = notificationPrefs?.requestExpiryTiming === 'end' ? 'end' : 'start';
   const [selectedTab, setSelectedTab] = useState('mine');
+  const swipeableRefs = useRef({});
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + (m || 0);
+  };
+
+  const isRequestExpired = (req) => {
+    const [y, m, d] = (req.date || '').split('-').map(Number);
+    if (!y || !m || !d) return false;
+    const startMins = timeToMinutes(req.startTime || '00:00');
+    const endMins = timeToMinutes(req.endTime || '23:59');
+    const isNextDay = endMins <= startMins;
+    const [endHours, endMinutes] = (req.endTime || '23:59').split(':').map(Number);
+    const endDateTime = isNextDay ? new Date(y, m - 1, d + 1, endHours || 0, endMinutes || 0, 0, 0) : new Date(y, m - 1, d, endHours || 23, endMinutes || 59, 0, 0);
+    return endDateTime < new Date();
+  };
+
+  const isMatchFull = (req) => {
+    const playersNeeded = req.playersNeeded || 2;
+    const requiredAcceptances = Math.max(playersNeeded - 1, 1);
+    const acceptedCount = Object.values(req.responses || {}).filter((r) => r?.status === 'accepted').length;
+    return acceptedCount >= requiredAcceptances;
+  };
+
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const myCreatedRequests = pendingRequests.filter(
-    (req) => req.creatorId === currentUser?.uid
+    (req) =>
+      req.creatorId === currentUser?.uid &&
+      !isPendingCreatorUnfilledPastDeadline(req, requestExpiryTiming)
   );
   const incomingRequests = pendingRequests.filter(
-    (req) => req.creatorId !== currentUser?.uid
+    (req) =>
+      req.creatorId !== currentUser?.uid &&
+      !isRequestExpired(req) &&
+      req.responses?.[currentUser?.uid]?.status !== 'declined' &&
+      req.responses?.[currentUser?.uid]?.status !== 'withdrawn' &&
+      !isMatchFull(req)
   );
   const confirmedMatches = requests.filter((r) => {
     if (r.status !== 'confirmed') {
       return false;
     }
-    const hasDeclined = Object.values(r.responses || {}).some((resp) => resp.status === 'declined');
-    return !hasDeclined;
+    const hasDeclined = Object.values(r.responses || {}).some((resp) => resp?.status === 'declined');
+    if (hasDeclined) return false;
+    if (r.creatorId === currentUser?.uid) return true;
+    const myResponse = (r.responses || {})[currentUser?.uid];
+    return myResponse && myResponse.status === 'accepted';
   });
-  const cancelledRequests = requests.filter(r => r.status === 'cancelled');
   const tabRequests = {
     mine: myCreatedRequests,
     incoming: incomingRequests,
     confirmed: confirmedMatches,
-    cancelled: cancelledRequests,
   };
-  const activeRequests = tabRequests[selectedTab] || [];
+  const sortRequestsByDateTime = (list) => {
+    return [...list].sort((a, b) => {
+      const aDate = new Date(a.date);
+      const bDate = new Date(b.date);
+      if (aDate.getTime() !== bDate.getTime()) {
+        return aDate - bDate;
+      }
+      const toMinutes = (time) => {
+        if (!time) {
+          return 0;
+        }
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+      return toMinutes(a.startTime) - toMinutes(b.startTime);
+    });
+  };
+  const activeRequests = sortRequestsByDateTime(tabRequests[selectedTab] || []);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -51,22 +113,70 @@ export default function HomeScreen({ navigation }) {
     });
   };
 
+  const sportColors = {
+    Tennis: { bg: '#e8f5e9', border: '#6FD08B' },
+    Padel: { bg: '#e8f5e9', border: '#7ed99a' },
+    Golf: { bg: '#e8f5e9', border: '#5bb87a' },
+    Basketball: { bg: '#fff3e0', border: '#ff9800' },
+  };
+  const sportBackgrounds = {
+    Tennis: require('../assets/sportBackgrounds/tennis.png'),
+    Padel: require('../assets/sportBackgrounds/padel.png'),
+    Golf: require('../assets/sportBackgrounds/golf.png'),
+    Basketball: require('../assets/sportBackgrounds/basketball.png'),
+  };
+  const getCardStyle = (sport) => {
+    const sc = sportColors[sport] || { bg: '#f8f9fa', border: '#dee2e6' };
+    const hasBgImage = sportBackgrounds[sport];
+    const bg = hasBgImage ? 'transparent' : themeColors.card2;
+    return {
+      backgroundColor: bg,
+      borderLeftWidth: 4,
+      borderLeftColor: sc.border,
+      overflow: 'hidden',
+    };
+  };
+  const textOnBg = {
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  };
+  const textOnCard = {
+    color: themeColors.text,
+  };
+  const renderCardContent = (item, content) => {
+    const bg = sportBackgrounds[item.sport];
+    const ts = bg ? textOnBg : textOnCard;
+    if (bg) {
+      return (
+        <>
+          <ImageBackground source={bg} style={styles.cardBgImage} resizeMode="cover" />
+          <View style={styles.cardOverlay} />
+          <View style={styles.cardContent}>{typeof content === 'function' ? content(ts) : content}</View>
+        </>
+      );
+    }
+    return <View style={styles.cardContent}>{typeof content === 'function' ? content({}) : content}</View>;
+  };
+
   const getFinalTimeRange = (request) => {
     if (!request?.responses) {
       return null;
     }
-    const accepted = Object.values(request.responses).filter(
-      (resp) => resp.status === 'accepted' && resp.acceptedStart
+    const accepted = Object.values(request.responses || {}).filter(
+      (resp) => resp?.status === 'accepted' && resp?.acceptedStart
     );
     if (accepted.length === 0) {
       return null;
     }
     const acceptedTime = accepted[0];
+    if (!acceptedTime?.acceptedStart) return null;
     const endTime =
       acceptedTime.acceptedEnd ||
       (request.durationMinutes
         ? (() => {
-            const [hours, minutes] = acceptedTime.acceptedStart.split(':').map(Number);
+            const [hours, minutes] = (acceptedTime.acceptedStart || '').split(':').map(Number);
             const totalMinutes = hours * 60 + minutes + request.durationMinutes;
             const endHours = Math.floor(totalMinutes / 60) % 24;
             const endMinutes = totalMinutes % 60;
@@ -82,29 +192,133 @@ export default function HomeScreen({ navigation }) {
   };
 
   const renderRequestItem = ({ item }) => {
-    const requestFriends = friends.filter(f => item.friendIds.includes(f.id));
+    const requestFriends = friends.filter(f => (item.friendIds || []).includes(f.id));
     const responses = item.responses || {};
     const responseList = Object.values(responses);
-    const accepted = responseList.filter((resp) => resp.status === 'accepted');
-    const declined = responseList.filter((resp) => resp.status === 'declined');
+    const accepted = responseList.filter((resp) => resp?.status === 'accepted');
+    const declined = responseList.filter((resp) => resp?.status === 'declined');
     const acceptedCount = Object.values(responses).filter(
-      (resp) => resp.status === 'accepted'
+      (resp) => resp?.status === 'accepted'
     ).length;
     const declinedCount = declined.length;
-    const allDeclined = requestFriends.length > 0 && declinedCount === requestFriends.length;
+    const invitedCount = (item.friendIds || []).length;
+    const allDeclined = invitedCount > 0 && declinedCount === invitedCount;
     const requiredAcceptances = Math.max((item.playersNeeded || 2) - 1, 1);
-    const isCancelled = item.status === 'cancelled';
     const isConfirmed = item.status === 'confirmed' || item.status === 'completed';
     const finalTime = isConfirmed ? getFinalTimeRange(item) : null;
-    const displayTime = finalTime?.start
+    const displayTime = finalTime && finalTime.start
       ? `${finalTime.start} - ${finalTime.end || item.endTime}`
-      : `${item.startTime} - ${item.endTime}`;
-    return (
+      : isConfirmed
+        ? '—'
+        : `${item.startTime} - ${item.endTime}`;
+
+    const acceptedWithPhotos = Object.entries(responses)
+      .filter(([, r]) => r?.status === 'accepted')
+      .map(([friendId, r]) => ({
+        id: friendId,
+        photoURL: r.responderPhotoURL || requestFriends.find((f) => f.id === friendId)?.photoURL,
+        name: r.responderName || r.responderUsername || requestFriends.find((f) => f.id === friendId)?.displayName,
+      }));
+
+    if (isConfirmed) {
+      const participantNames = [
+        item.creatorDisplayName || item.creatorUsername || item.creatorId,
+        ...accepted.map((r) => r.responderName || r.responderUsername || r.responderId),
+      ].filter(Boolean);
+      return (
+        <TouchableOpacity
+          style={[styles.requestCard, styles.requestCardCompact, getCardStyle(item.sport)]}
+          onPress={() => navigation.navigate('Requests', { requestId: item.id })}
+        >
+          {renderCardContent(item, (ts) => (
+            <>
+              <View style={styles.cardTopRow}>
+                <View style={styles.cardLeftBlock}>
+                  <Text style={[styles.cardDate, ts]}>{formatDate(item.date)}</Text>
+                  <Text style={[styles.cardTime, ts]}>{displayTime}</Text>
+                  <Text style={[styles.cardSport, ts]}>{item.sport || '—'}</Text>
+                  {item.status === 'completed' && (
+                    <Text style={[styles.compactBadge, ts]}>{t('details.completed')}</Text>
+                  )}
+                </View>
+                <View>
+                  {item.creatorPhotoURL ? (
+                    <Image source={{ uri: item.creatorPhotoURL }} style={styles.creatorAvatarRight} />
+                  ) : (
+                    <View style={[styles.creatorAvatarRightPlaceholder, { backgroundColor: themeColors.card3 || '#e0e0e0' }]}>
+                      <Text style={[styles.creatorAvatarText, { color: themeColors.text || '#555' }]}>
+                        {(item.creatorDisplayName || item.creatorUsername || '?').slice(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              {acceptedWithPhotos.length > 0 && (
+                <View style={styles.acceptedAvatarsRow}>
+                  {acceptedWithPhotos.map((a, idx) => (
+                    <View key={a.id} style={[styles.acceptedAvatar, { borderColor: themeColors.card || 'rgba(255,255,255,0.9)' }, idx > 0 && styles.acceptedAvatarOverlap]}>
+                      {a.photoURL ? (
+                        <Image source={{ uri: a.photoURL }} style={styles.acceptedAvatarImage} />
+                      ) : (
+                        <View style={[styles.acceptedAvatarPlaceholder, { backgroundColor: themeColors.card3 || '#95a5a6' }]}>
+                          <Text style={styles.acceptedAvatarText}>
+                            {(a.name || '?').slice(0, 1).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+              <Text style={[styles.compactWith, ts]} numberOfLines={1}>
+                {t('app.with')}: {participantNames.join(', ')}
+              </Text>
+            </>
+          ))}
+        </TouchableOpacity>
+      );
+    }
+
+    const isCreator = item.creatorId === currentUser?.uid;
+    const showAllDeclinedCard = isCreator && allDeclined;
+
+    const triggerCancelDialog = () => {
+      swipeableRefs.current[item.id]?.close?.();
+      Alert.alert(
+        t('details.cancelRequest'),
+        t('details.cancelConfirm'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('details.cancelRequest'),
+            style: 'destructive',
+            onPress: () => cancelRequest(item.id),
+          },
+        ]
+      );
+    };
+
+    const renderSwipeCancelAction = () => (
+      <View style={styles.swipeCancelAction}>
+        <View style={styles.swipeCancelActionContent}>
+          <View style={styles.swipeCancelIconWrap}>
+            <Ionicons name="trash-outline" size={28} color="#fff" />
+          </View>
+          <Text style={styles.swipeCancelActionText}>{t('details.cancelRequest')}</Text>
+        </View>
+      </View>
+    );
+
+    const cardContent = (
       <TouchableOpacity
-        style={styles.requestCard}
+        style={[
+          styles.requestCard,
+          getCardStyle(item.sport),
+          showAllDeclinedCard && styles.requestCardAllDeclined,
+        ]}
         onPress={() => navigation.navigate('Requests', { requestId: item.id })}
         onLongPress={() => {
-          if (item.creatorId === currentUser?.uid && item.status === 'pending') {
+          if (isCreator && item.status === 'pending' && !allDeclined) {
             Alert.alert(
               t('details.editRequest'),
               t('details.editRequestPrompt'),
@@ -119,97 +333,166 @@ export default function HomeScreen({ navigation }) {
           }
         }}
       >
-        <View style={styles.requestHeaderRow}>
-          <View style={styles.creatorInfo}>
-            {item.creatorPhotoURL ? (
-              <Image source={{ uri: item.creatorPhotoURL }} style={styles.creatorAvatar} />
-            ) : (
-              <View style={styles.creatorAvatarPlaceholder}>
-                <Text style={styles.creatorAvatarText}>
-                  {(item.creatorDisplayName || item.creatorUsername || '?')
-                    .slice(0, 1)
-                    .toUpperCase()}
-                </Text>
+        {renderCardContent(item, (ts) => (
+          <>
+            <View style={styles.cardTopRow}>
+              <View style={styles.cardLeftBlock}>
+                <Text style={[styles.cardDate, ts]}>{formatDate(item.date)}</Text>
+                <Text style={[styles.cardTime, ts]}>{displayTime}</Text>
+                <Text style={[styles.cardSport, ts]}>{item.sport || '—'}</Text>
+              </View>
+              <View style={styles.creatorBlock}>
+                {item.creatorPhotoURL ? (
+                  <Image source={{ uri: item.creatorPhotoURL }} style={styles.creatorAvatarRight} />
+                ) : (
+                  <View style={[styles.creatorAvatarRightPlaceholder, { backgroundColor: themeColors.card3 || '#e0e0e0' }]}>
+                    <Text style={[styles.creatorAvatarText, { color: themeColors.text || '#555' }]}>
+                      {(item.creatorDisplayName || item.creatorUsername || '?').slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                {showAllDeclinedCard ? (
+                  <View style={styles.allDeclinedBadge}>
+                    <Text style={styles.allDeclinedBadgeText}>{t('app.allDeclined')}</Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.acceptedCountBadge, { color: themeColors.primary || '#6FD08B' }]}>
+                    {acceptedCount}/{requiredAcceptances}
+                  </Text>
+                )}
+              </View>
+            </View>
+            {allDeclined && !showAllDeclinedCard && (
+              <Text style={[styles.requestAllDeclined, ts]}>{t('app.allDeclined')}</Text>
+            )}
+            {acceptedWithPhotos.length > 0 && (
+              <View style={styles.acceptedAvatarsRow}>
+                {acceptedWithPhotos.map((a, idx) => (
+                  <View key={a.id} style={[styles.acceptedAvatar, { borderColor: themeColors.card || 'rgba(255,255,255,0.9)' }, idx > 0 && styles.acceptedAvatarOverlap]}>
+                    {a.photoURL ? (
+                      <Image source={{ uri: a.photoURL }} style={styles.acceptedAvatarImage} />
+                    ) : (
+                      <View style={[styles.acceptedAvatarPlaceholder, { backgroundColor: themeColors.card3 || '#95a5a6' }]}>
+                        <Text style={styles.acceptedAvatarText}>
+                          {(a.name || '?').slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
               </View>
             )}
-            <Text style={styles.requestCreator}>
-              {t('app.creator')}: {item.creatorDisplayName || item.creatorUsername || item.creatorId}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.requestDate}>{formatDate(item.date)}</Text>
-        <Text style={styles.requestTime}>{displayTime}</Text>
-        {allDeclined && (
-          <Text style={styles.requestAllDeclined}>{t('app.allDeclined')}</Text>
-        )}
-        {item.sport ? (
-          <Text style={styles.requestSport}>{item.sport}</Text>
-        ) : null}
-        <Text style={styles.requestFriends}>
-          {requestFriends.length} friend(s) invited
-        </Text>
-        <Text style={styles.requestAccepted}>
-          {t('app.acceptedCount', { count: acceptedCount, total: requiredAcceptances })}
-        </Text>
-        {accepted.length > 0 && (
-          <Text style={styles.requestResponse}>
-            {t('app.accepted')}: {accepted.map((resp) => resp.responderName || resp.responderUsername || resp.responderId).join(', ')}
-          </Text>
-        )}
-        {declined.length > 0 && (
-          <Text style={styles.requestResponse}>
-            {t('app.declinedBy')} ({declinedCount}): {declined.map((resp) => resp.responderName || resp.responderUsername || resp.responderId).join(', ')}
-          </Text>
-        )}
-        {isCancelled && (
-          <Text style={styles.requestCancelled}>{t('app.cancelled')}</Text>
-        )}
+            {showAllDeclinedCard && (
+              <View style={styles.cancelRow}>
+                <TouchableOpacity
+                  style={styles.cancelOnCardButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Alert.alert(
+                      t('details.cancelRequest'),
+                      t('details.cancelConfirm'),
+                      [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                          text: t('details.cancelRequest'),
+                          style: 'destructive',
+                          onPress: () => cancelRequest(item.id),
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.cancelOnCardButtonText}>{t('details.cancelRequest')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        ))}
       </TouchableOpacity>
     );
+
+    if (showAllDeclinedCard) {
+      return (
+        <Swipeable
+          ref={(r) => { if (r) swipeableRefs.current[item.id] = r; }}
+          renderRightActions={renderSwipeCancelAction}
+          overshootRight={false}
+          friction={1.5}
+          rightThreshold={50}
+          onSwipeableRightOpen={triggerCancelDialog}
+        >
+          {cardContent}
+        </Swipeable>
+      );
+    }
+    return cardContent;
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <ExpoStatusBar style="auto" />
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.tabRow}>
           <TouchableOpacity
-            style={[styles.tabButton, selectedTab === 'mine' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              selectedTab === 'mine' && styles.tabButtonActive,
+            ]}
             onPress={() => setSelectedTab('mine')}
           >
-            <Text style={[styles.tabText, selectedTab === 'mine' && styles.tabTextActive]}>
+            <Text
+              style={[
+                styles.tabText,
+                { color: themeColors.text },
+                selectedTab === 'mine' && styles.tabTextActive,
+              ]}
+            >
               {t('app.myRequests')} ({myCreatedRequests.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabButton, selectedTab === 'incoming' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              selectedTab === 'incoming' && styles.tabButtonActive,
+            ]}
             onPress={() => setSelectedTab('incoming')}
           >
-            <Text style={[styles.tabText, selectedTab === 'incoming' && styles.tabTextActive]}>
+            <Text
+              style={[
+                styles.tabText,
+                { color: themeColors.text },
+                selectedTab === 'incoming' && styles.tabTextActive,
+              ]}
+            >
               {t('app.incomingRequests')} ({incomingRequests.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabButton, selectedTab === 'confirmed' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              selectedTab === 'confirmed' && styles.tabButtonActive,
+            ]}
             onPress={() => setSelectedTab('confirmed')}
           >
-            <Text style={[styles.tabText, selectedTab === 'confirmed' && styles.tabTextActive]}>
+            <Text
+              style={[
+                styles.tabText,
+                { color: themeColors.text },
+                selectedTab === 'confirmed' && styles.tabTextActive,
+              ]}
+            >
               {t('app.confirmedMatches')} ({confirmedMatches.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, selectedTab === 'cancelled' && styles.tabButtonActive]}
-            onPress={() => setSelectedTab('cancelled')}
-          >
-            <Text style={[styles.tabText, selectedTab === 'cancelled' && styles.tabTextActive]}>
-              {t('app.cancelledRequests')} ({cancelledRequests.length})
             </Text>
           </TouchableOpacity>
         </View>
 
         {activeRequests.length > 0 ? (
           <FlatList
+            style={{ backgroundColor: themeColors.background }}
             data={activeRequests}
             renderItem={renderRequestItem}
             keyExtractor={(item) => item.id}
@@ -217,24 +500,19 @@ export default function HomeScreen({ navigation }) {
           />
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>{t('app.noRequests')}</Text>
-            <Text style={styles.emptySubtext}>{t('app.noRequestsSubtext')}</Text>
+            <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
+              {t('app.noRequests')}
+            </Text>
+            <Text style={[styles.emptySubtext, { color: themeColors.textMuted }]}>
+              {t('app.noRequestsSubtext')}
+            </Text>
           </View>
         )}
       </ScrollView>
-      
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('Request')}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
 
       {/* Version Display */}
       <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>v0.2.4</Text>
+        <Text style={styles.versionText}>v{appVersion}</Text>
       </View>
     </SafeAreaView>
   );
@@ -250,7 +528,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 100,
+    paddingBottom: 90,
   },
   section: {
     marginBottom: 30,
@@ -269,11 +547,137 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
   },
+  requestCardAllDeclined: {
+    borderLeftColor: '#e53935',
+    borderLeftWidth: 4,
+  },
+  cardBgImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 1,
+  },
+  cardContent: {
+    zIndex: 2,
+  },
+  requestCardCompact: {
+    padding: 12,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  cardLeftBlock: {
+    flex: 1,
+  },
+  cardDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 2,
+  },
+  cardTime: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 4,
+  },
+  cardSport: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2c3e50',
+  },
+  creatorBlock: {
+    alignItems: 'flex-end',
+  },
+  creatorAvatarRight: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e0e0e0',
+  },
+  creatorAvatarRightPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptedCountBadge: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6FD08B',
+  },
+  acceptedAvatarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  acceptedAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    overflow: 'hidden',
+  },
+  acceptedAvatarOverlap: {
+    marginLeft: -8,
+  },
+  acceptedAvatarImage: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  acceptedAvatarPlaceholder: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptedAvatarText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  compactSport: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2c3e50',
+  },
+  compactBadge: {
+    fontSize: 11,
+    color: '#5bb87a',
+    fontWeight: '600',
+  },
+  compactDateTime: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 4,
+  },
+  compactWith: {
+    fontSize: 12,
+    color: '#95a5a6',
+  },
   requestHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  dateTimeBlock: {
+    flex: 1,
   },
   creatorInfo: {
     flexDirection: 'row',
@@ -304,7 +708,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#2c3e50',
-    marginBottom: 5,
+    marginBottom: 2,
   },
   requestCreator: {
     fontSize: 12,
@@ -314,7 +718,7 @@ const styles = StyleSheet.create({
   requestTime: {
     fontSize: 14,
     color: '#7f8c8d',
-    marginBottom: 5,
+    marginBottom: 0,
   },
   requestAllDeclined: {
     alignSelf: 'flex-end',
@@ -323,10 +727,68 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
   },
+  allDeclinedBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#ffebee',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#e53935',
+  },
+  cancelRow: {
+    flexDirection: 'row',
+    marginTop: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  allDeclinedBadgeText: {
+    fontSize: 13,
+    color: '#c62828',
+    fontWeight: '700',
+  },
+  cancelOnCardButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e53935',
+  },
+  cancelOnCardButtonText: {
+    fontSize: 14,
+    color: '#e53935',
+    fontWeight: '600',
+  },
+  swipeCancelAction: {
+    width: 100,
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: '#e53935',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeCancelActionContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeCancelIconWrap: {
+    marginBottom: 4,
+  },
+  swipeCancelActionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   requestSport: {
     fontSize: 13,
     color: '#2c3e50',
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  requestLocation: {
+    fontSize: 12,
+    color: '#7f8c8d',
     marginBottom: 4,
   },
   requestFriends: {
@@ -336,7 +798,7 @@ const styles = StyleSheet.create({
   requestAccepted: {
     marginTop: 4,
     fontSize: 12,
-    color: '#4CAF50',
+    color: '#6FD08B',
     fontWeight: '600',
   },
   requestResponse: {
@@ -366,8 +828,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabButtonActive: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: '#6FD08B',
+    borderColor: '#6FD08B',
   },
   tabText: {
     fontSize: 11,
@@ -377,12 +839,6 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: '#fff',
-  },
-  requestCancelled: {
-    marginTop: 6,
-    fontSize: 12,
-    color: '#e53935',
-    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',
@@ -397,28 +853,6 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#95a5a6',
-  },
-  fab: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: -30, // Half of width (60/2) to center it
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  fabText: {
-    fontSize: 32,
-    color: '#fff',
-    fontWeight: 'bold',
   },
   versionContainer: {
     position: 'absolute',

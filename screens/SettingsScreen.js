@@ -6,123 +6,185 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  Switch,
 } from 'react-native';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { useNotifications } from '../context/NotificationContext';
+import { GOOGLE_WEB_CLIENT_ID } from '../googleAuthConfig';
 
 export default function SettingsScreen({ navigation }) {
-  let languageContext;
-  try {
-    languageContext = useLanguage();
-  } catch (error) {
-    console.error('Language context error:', error);
-    // Fallback if context not available
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <Text>Settings loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-  
-  const { selectedLanguages, primaryLanguage, setLanguages, t, availableLanguages } = languageContext;
-  const [tempSelected, setTempSelected] = useState([...selectedLanguages]);
-  const [tempPrimary, setTempPrimary] = useState(primaryLanguage);
-
-  const toggleLanguage = (langCode) => {
-    if (tempSelected.includes(langCode)) {
-      // If it's the primary language and there are other languages, don't allow removal
-      if (langCode === tempPrimary && tempSelected.length > 1) {
-        // Set another language as primary first
-        const otherLang = tempSelected.find(l => l !== langCode);
-        setTempPrimary(otherLang);
-        setTempSelected(tempSelected.filter(l => l !== langCode));
-      } else if (tempSelected.length > 1) {
-        // Can remove if not primary or if it's the only one
-        setTempSelected(tempSelected.filter(l => l !== langCode));
-        if (langCode === tempPrimary) {
-          const otherLang = tempSelected.find(l => l !== langCode);
-          setTempPrimary(otherLang);
-        }
-      }
-    } else {
-      // Add language
-      setTempSelected([...tempSelected, langCode]);
-      if (tempSelected.length === 0) {
-        setTempPrimary(langCode);
-      }
-    }
-  };
-
-  const setPrimary = (langCode) => {
-    if (tempSelected.includes(langCode)) {
-      setTempPrimary(langCode);
-    }
-  };
+  const { primaryLanguage, setLanguages, t, availableLanguages } = useLanguage();
+  const { isDarkMode, toggleTheme, colors } = useTheme();
+  const { prefs, updatePref } = useNotifications();
+  const [selectedLanguage, setSelectedLanguage] = useState(primaryLanguage);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleSave = () => {
-    setLanguages(tempSelected, tempPrimary);
+    setLanguages([selectedLanguage], selectedLanguage);
     navigation.goBack();
   };
 
+  const cardStyle = { backgroundColor: colors.card, borderColor: colors.border };
+  const sectionLabelStyle = { color: colors.textSecondary };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{t('settings.title')}</Text>
+        {/* Appearance */}
+        <View style={[styles.card, cardStyle]}>
+          <View style={[styles.sectionLabelRow, { borderLeftColor: colors.primary }]}>
+            <Text style={[styles.sectionLabel, sectionLabelStyle]}>
+              {t('settings.sectionAppearance')}
+            </Text>
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>
+              {t('settings.darkMode')}
+            </Text>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#ccc', true: colors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('settings.languages')}</Text>
-          <Text style={styles.sectionSubtitle}>{t('settings.selectLanguages')}</Text>
+        {/* Language */}
+        <View style={[styles.card, cardStyle]}>
+          <View style={[styles.sectionLabelRow, { borderLeftColor: colors.primary }]}>
+            <Text style={[styles.sectionLabel, sectionLabelStyle]}>
+              {t('settings.sectionLanguage')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.dropdownButton, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+            onPress={() => setDropdownOpen(!dropdownOpen)}
+          >
+            <Text style={[styles.dropdownButtonText, { color: colors.text }]}>
+              {availableLanguages.find((lang) => lang.code === selectedLanguage)?.nativeName ||
+                selectedLanguage}
+            </Text>
+            <Text style={[styles.dropdownChevron, { color: colors.textSecondary }]}>
+              {dropdownOpen ? '▲' : '▼'}
+            </Text>
+          </TouchableOpacity>
 
-          {availableLanguages.map((lang) => {
-            const isSelected = tempSelected.includes(lang.code);
-            const isPrimary = tempPrimary === lang.code;
-
-            return (
-              <View key={lang.code} style={styles.languageItem}>
+          {dropdownOpen && (
+            <View style={[styles.dropdownList, { backgroundColor: colors.card2 || colors.card, borderColor: colors.border }]}>
+              {availableLanguages.map((lang) => (
                 <TouchableOpacity
-                  style={styles.languageRow}
-                  onPress={() => toggleLanguage(lang.code)}
+                  key={lang.code}
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                  onPress={() => {
+                    setSelectedLanguage(lang.code);
+                    setDropdownOpen(false);
+                  }}
                 >
-                  <View style={styles.checkboxContainer}>
-                    <View style={[
-                      styles.checkbox,
-                      isSelected && styles.checkboxSelected,
-                    ]}>
-                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
-                    </View>
-                    <Text style={[
-                      styles.languageName,
-                      isSelected && styles.languageNameSelected,
-                    ]}>
-                      {lang.nativeName} ({lang.name})
-                    </Text>
-                  </View>
+                  <Text style={[styles.dropdownItemText, { color: colors.text }]}>
+                    {lang.nativeName}
+                  </Text>
+                  {selectedLanguage === lang.code && (
+                    <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>
+                  )}
                 </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
-                {isSelected && (
-                  <TouchableOpacity
-                    style={[
-                      styles.primaryButton,
-                      isPrimary && styles.primaryButtonActive,
-                    ]}
-                    onPress={() => setPrimary(lang.code)}
-                  >
-                    <Text style={[
-                      styles.primaryButtonText,
-                      isPrimary && styles.primaryButtonTextActive,
-                    ]}>
-                      {isPrimary ? '✓ Primary' : 'Set as Primary'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+        {/* Google / account sign-in note */}
+        <View style={[styles.card, cardStyle]}>
+          <View style={[styles.sectionLabelRow, { borderLeftColor: colors.primary }]}>
+            <Text style={[styles.sectionLabel, sectionLabelStyle]}>{t('settings.sectionAccountAuth')}</Text>
+          </View>
+          <Text style={[styles.googleSetupNote, { color: colors.textSecondary }]}>{t('settings.googleAccountSetupNote')}</Text>
+          {!GOOGLE_WEB_CLIENT_ID ? (
+            <Text style={[styles.googleSetupWarn, { color: colors.warning || '#c0392b', marginTop: 10 }]}>
+              {t('settings.googleNotConfigured')}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Planning: when pending requests expire */}
+        <View style={[styles.card, cardStyle]}>
+          <View style={[styles.sectionLabelRow, { borderLeftColor: colors.primary }]}>
+            <Text style={[styles.sectionLabel, sectionLabelStyle]}>
+              {t('settings.sectionPlanning')}
+            </Text>
+          </View>
+          <Text style={[styles.planningTitle, { color: colors.text }]}>{t('settings.requestExpiryTitle')}</Text>
+          <Text style={[styles.planningHint, { color: colors.textSecondary }]}>
+            {t('settings.requestExpiryHint')}
+          </Text>
+          {(['start', 'end']).map((value) => {
+            const selected = (prefs.requestExpiryTiming || 'start') === value;
+            return (
+              <TouchableOpacity
+                key={value}
+                style={[
+                  styles.radioRow,
+                  {
+                    borderColor: selected ? colors.primary : colors.border,
+                    backgroundColor: selected ? colors.inputBg : 'transparent',
+                  },
+                ]}
+                onPress={() => updatePref('requestExpiryTiming', value)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.radioLabel, { color: colors.text }]}>
+                  {value === 'start' ? t('settings.requestExpiry.start') : t('settings.requestExpiry.end')}
+                </Text>
+                {selected ? <Text style={[styles.radioCheck, { color: colors.primary }]}>✓</Text> : null}
+              </TouchableOpacity>
             );
           })}
         </View>
 
+        {/* Notifications */}
+        <View style={[styles.card, cardStyle]}>
+          <View style={[styles.sectionLabelRow, { borderLeftColor: colors.primary }]}>
+            <Text style={[styles.sectionLabel, sectionLabelStyle]}>
+              {t('settings.sectionNotifications')}
+            </Text>
+          </View>
+          <View style={[styles.toggleRow, styles.toggleRowFirst]}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.friendRequest')}</Text>
+            <Switch value={prefs.friendRequest} onValueChange={(v) => updatePref('friendRequest', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchRequest')}</Text>
+            <Switch value={prefs.matchRequest} onValueChange={(v) => updatePref('matchRequest', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchConfirmed')}</Text>
+            <Switch value={prefs.matchConfirmed} onValueChange={(v) => updatePref('matchConfirmed', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.friendAccepted')}</Text>
+            <Switch value={prefs.friendAccepted} onValueChange={(v) => updatePref('friendAccepted', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchCancelled')}</Text>
+            <Switch value={prefs.matchCancelled} onValueChange={(v) => updatePref('matchCancelled', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchExpired')}</Text>
+            <Switch value={prefs.matchExpired} onValueChange={(v) => updatePref('matchExpired', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchDeclined')}</Text>
+            <Switch value={prefs.matchDeclined} onValueChange={(v) => updatePref('matchDeclined', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={[styles.toggleRow, styles.toggleRowLast]}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchWithdrawn')}</Text>
+            <Switch value={prefs.matchWithdrawn} onValueChange={(v) => updatePref('matchWithdrawn', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+        </View>
+
         <TouchableOpacity
-          style={styles.saveButton}
+          style={[styles.saveButton, { backgroundColor: colors.primary }]}
           onPress={handleSave}
         >
           <Text style={styles.saveButtonText}>{t('common.ok')}</Text>
@@ -135,110 +197,136 @@ export default function SettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 32,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 5,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    marginBottom: 20,
-  },
-  languageItem: {
-    marginBottom: 15,
-    backgroundColor: '#f8f9fa',
+  card: {
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionLabelRow: {
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  dropdownButton: {
+    borderWidth: 1,
     borderRadius: 8,
-    padding: 15,
-  },
-  languageRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  checkboxContainer: {
+  dropdownButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  dropdownChevron: {
+    fontSize: 12,
+  },
+  dropdownList: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    flex: 1,
+    borderBottomWidth: 1,
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    borderRadius: 4,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  checkboxSelected: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+  dropdownItemText: {
+    fontSize: 15,
   },
   checkmark: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  languageName: {
-    fontSize: 16,
-    color: '#2c3e50',
+  googleSetupNote: {
+    fontSize: 13,
+    lineHeight: 19,
   },
-  languageNameSelected: {
+  googleSetupWarn: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  planningTitle: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#2e7d32',
+    marginBottom: 6,
   },
-  primaryButton: {
-    marginTop: 10,
-    paddingVertical: 8,
+  planningHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  radioRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 6,
-    alignSelf: 'flex-start',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
   },
-  primaryButtonActive: {
-    backgroundColor: '#4CAF50',
+  radioLabel: {
+    fontSize: 15,
+    flex: 1,
+    paddingRight: 8,
   },
-  primaryButtonText: {
-    fontSize: 12,
-    color: '#1976d2',
-    fontWeight: '600',
+  radioCheck: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  primaryButtonTextActive: {
-    color: '#fff',
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(128,128,128,0.2)',
+  },
+  toggleRowFirst: {
+    borderTopWidth: 0,
+    marginTop: 0,
+    paddingTop: 0,
+  },
+  toggleRowLast: {
+    paddingBottom: 0,
+  },
+  rowLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    flex: 1,
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    padding: 18,
+    borderRadius: 10,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 8,
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

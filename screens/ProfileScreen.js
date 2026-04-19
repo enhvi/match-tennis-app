@@ -13,12 +13,15 @@ import { storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import ProfileView from '../components/ProfileView';
+import FriendsModal from '../components/FriendsModal';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, profile, updateProfileInfo } = useAuth();
   const { friends = [], requests = [] } = useApp();
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -27,7 +30,7 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showSports, setShowSports] = useState(false);
-  const [showFriends, setShowFriends] = useState(false);
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
 
   useEffect(() => {
     setUsername(profile?.username || user?.displayName || '');
@@ -120,8 +123,9 @@ export default function ProfileScreen() {
   const matchCount = requests.filter((request) => request.status === 'completed').length;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ProfileView
+        colors={colors}
         name={profileName}
         username={username}
         bio={bio}
@@ -139,13 +143,20 @@ export default function ProfileScreen() {
         matchCount={matchCount}
         showSports={showSports}
         onToggleSports={() => setShowSports((prev) => !prev)}
-        showFriends={showFriends}
-        onToggleFriends={() => setShowFriends((prev) => !prev)}
+        onFriendsPress={() => setShowFriendsModal(true)}
+        onMatchesPress={() => navigation.navigate('MatchHistory')}
+        onFriendPress={(friend) =>
+          navigation.navigate('FriendProfile', { friendId: friend.id, friend })
+        }
         t={t}
         footer={
           <View style={styles.footer}>
             <TouchableOpacity
-              style={[styles.primaryButton, saving && styles.disabledButton]}
+              style={[
+              styles.primaryButton,
+              { backgroundColor: colors.primary },
+              saving && styles.disabledButton,
+            ]}
               onPress={handleSave}
               disabled={saving}
             >
@@ -155,6 +166,16 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         }
+      />
+      <FriendsModal
+        visible={showFriendsModal}
+        onClose={() => setShowFriendsModal(false)}
+        title={t('friendProfile.friends')}
+        friends={friends}
+        onFriendPress={(friend) =>
+          navigation.navigate('FriendProfile', { friendId: friend.id, friend })
+        }
+        t={t}
       />
     </SafeAreaView>
   );
@@ -169,7 +190,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#6FD08B',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',

@@ -39,9 +39,7 @@ logs/
 
 # Testing
 coverage/
-.nyc_output/
-
-# Server
+.nyc_output/# Server
 server/node_modules/
 server/.env# Temporary files
 expo-output.txt

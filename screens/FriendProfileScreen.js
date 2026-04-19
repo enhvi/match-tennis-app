@@ -1,26 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import ProfileView from '../components/ProfileView';
+import FriendsModal from '../components/FriendsModal';
 
 export default function FriendProfileScreen({ route, navigation }) {
   const { friendId, friend: initialFriend } = route?.params || {};
   const { t } = useLanguage();
+  const { friends, addFriendByUsername, currentUser } = useApp();
+  const { colors } = useTheme();
   const [profile, setProfile] = useState(initialFriend || null);
   const [friendList, setFriendList] = useState([]);
   const [matchCount, setMatchCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSports, setShowSports] = useState(false);
-  const [showFriends, setShowFriends] = useState(false);
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({ title: t('friendProfile.title') });
@@ -112,7 +119,7 @@ export default function FriendProfileScreen({ route, navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#6FD08B" />
       </SafeAreaView>
     );
   }
@@ -129,10 +136,26 @@ export default function FriendProfileScreen({ route, navigation }) {
   const username = profile?.username || friendId || '';
   const bio = profile?.bio || '';
   const sports = profile?.sports || [];
+  const friendName = name;
+  const isMyFriend = friends.some((f) => f.id === friendId);
+  const isMe = friendId === currentUser?.uid;
+  const canAddFriend = !isMe && !isMyFriend && (username || friendId);
+
+  const handleAddFriend = async () => {
+    const toUse = profile?.username || friendId;
+    if (!toUse) return;
+    try {
+      await addFriendByUsername(toUse);
+      Alert.alert(t('friends.success'), t('friends.requestSent'));
+    } catch (err) {
+      Alert.alert(t('friends.error'), err.message || t('friends.requestError'));
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ProfileView
+        colors={colors}
         name={name}
         username={username}
         bio={bio}
@@ -142,8 +165,50 @@ export default function FriendProfileScreen({ route, navigation }) {
         matchCount={matchCount}
         showSports={showSports}
         onToggleSports={() => setShowSports((prev) => !prev)}
-        showFriends={showFriends}
-        onToggleFriends={() => setShowFriends((prev) => !prev)}
+        onFriendsPress={() => setShowFriendsModal(true)}
+        onMatchesPress={() =>
+          navigation.navigate('MatchHistory', { friendId, friendName })
+        }
+        onFriendPress={(friend) =>
+          navigation.navigate('FriendProfile', { friendId: friend.id, friend })
+        }
+        t={t}
+        footer={
+          <>
+            {isMyFriend && !isMe ? (
+              <TouchableOpacity
+                style={[styles.messageButton, { borderColor: colors.primary }]}
+                onPress={() =>
+                  navigation.navigate('Chat', {
+                    friendId,
+                    friendName: name,
+                  })
+                }
+              >
+                <Text style={[styles.messageButtonText, { color: colors.primary }]}>{t('messages.openChat')}</Text>
+              </TouchableOpacity>
+            ) : null}
+            {canAddFriend ? (
+              <TouchableOpacity
+                style={[styles.addFriendButton, { backgroundColor: colors.primary }]}
+                onPress={handleAddFriend}
+              >
+                <Text style={styles.addFriendButtonText}>
+                  {t('friends.addFriend')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        }
+      />
+      <FriendsModal
+        visible={showFriendsModal}
+        onClose={() => setShowFriendsModal(false)}
+        title={t('friendProfile.friendsOf', { name: friendName })}
+        friends={friendList}
+        onFriendPress={(friend) =>
+          navigation.navigate('FriendProfile', { friendId: friend.id, friend })
+        }
         t={t}
       />
     </SafeAreaView>
@@ -166,5 +231,28 @@ const styles = StyleSheet.create({
     color: '#e53935',
     fontSize: 16,
     textAlign: 'center',
+  },
+  messageButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  messageButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  addFriendButton: {
+    backgroundColor: '#6FD08B',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  addFriendButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

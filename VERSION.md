@@ -1,3 +1,57 @@
+# Find A Match - Version 0.3.2
+
+## Release Date
+April 19, 2026
+
+## Changes from 0.3.1
+- Messages: conversation list loads reliably (Firestore query without composite index; sort by last activity on the client)
+- Messages: user-visible error when the conversation list cannot be loaded (`listLoadError` banner; EN/DE strings)
+
+---
+
+# Find A Match - Version 0.3.1
+
+## Release Date
+February 22, 2026
+
+## Changes from 0.3.0
+- Options menu: renamed "Sprache" to "Optionen" with language selection and dark mode toggle
+- Dark mode: persisted in AsyncStorage, applied across all screens
+- Match screens (Request, Requests): graduated gray backgrounds, white text, matte blue headings
+- ThemeContext: card2, card3 for graduated backgrounds; headingBlue for section titles
+- Fixed React Navigation theme error ("cannot read property regular of undefined") via DefaultTheme spread
+
+---
+
+# Find A Match - Version 0.3.0
+
+## Release Date
+February 17, 2026
+
+## Changes from 0.2.7
+- Home: sport-specific card backgrounds (colors + optional images from assets/sportBackgrounds/)
+- Home: dark overlay and white text on image backgrounds for readability
+- Home/Menu: version display fixed (dynamic from package.json)
+- Request details: compact info grid layout, removed "Akzeptiert von" for confirmed matches
+- Friends: tappable friends list in profiles – navigate to friend-of-friend profiles
+- Friends: "Add Friend" button when viewing non-friend profile (e.g. friend of friend)
+
+---
+
+# Find A Match - Version 0.2.7
+
+## Release Date
+February 17, 2026
+
+## Changes from 0.2.6
+- Home: compact layout for own requests – date/time left, avatar right in same row
+- Menu/Navigation: all screen headers translated (Language, Friends, Profile, Account, etc.)
+- Removed duplicate content titles from Settings, Friends, Account, Match History screens
+- Match History: dynamic header when viewing friend's history (e.g. "Match-Verlauf (Max)")
+- Auth screens: Login/Signup headers translated
+
+---
+
 # Find A Match - Version 0.2.6
 
 ## Release Date
