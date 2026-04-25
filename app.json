@@ -32,7 +32,11 @@
     },
     "scheme": "match",
     "extra": {
-      "googleWebClientId": "1083932941306-rfjueotkdvve9kf2jjlbsopou4ree4l8.apps.googleusercontent.com"
-    }
+      "googleWebClientId": "1083932941306-rfjueotkdvve9kf2jjlbsopou4ree4l8.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "d5fb047c-346b-45cb-b08a-c522311f1aa0"
+      }
+    },
+    "owner": "enhvi"
   }
 }
