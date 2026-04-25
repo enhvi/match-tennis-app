@@ -177,9 +177,13 @@ export default function SettingsScreen({ navigation }) {
             <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchDeclined')}</Text>
             <Switch value={prefs.matchDeclined} onValueChange={(v) => updatePref('matchDeclined', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
           </View>
-          <View style={[styles.toggleRow, styles.toggleRowLast]}>
+          <View style={styles.toggleRow}>
             <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchWithdrawn')}</Text>
             <Switch value={prefs.matchWithdrawn} onValueChange={(v) => updatePref('matchWithdrawn', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
+          </View>
+          <View style={[styles.toggleRow, styles.toggleRowLast]}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>{t('notifications.matchReminder')}</Text>
+            <Switch value={prefs.matchReminder !== false} onValueChange={(v) => updatePref('matchReminder', v)} trackColor={{ false: '#ccc', true: colors.primary }} thumbColor="#fff" />
           </View>
         </View>
 

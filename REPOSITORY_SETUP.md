@@ -26,8 +26,8 @@ git push origin v0.1.0
 ## Version Information
 
 - **Current Version**: 0.1.0
-- **Package Name**: find-a-match
-- **App Name**: Find A Match
+- **Package Name**: match
+- **App Name**: Match
 
 ## Files Included
 

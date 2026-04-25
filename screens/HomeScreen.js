@@ -18,8 +18,6 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
-import { useNotifications } from '../context/NotificationContext';
-import { isPendingCreatorUnfilledPastDeadline } from '../utils/requestExpiry';
 
 const appVersion = Constants.expoConfig?.version || require('../package.json').version || '0.3.2';
 
@@ -27,26 +25,8 @@ export default function HomeScreen({ navigation }) {
   const { requests, friends, currentUser, cancelRequest } = useApp();
   const { t, primaryLanguage } = useLanguage();
   const { colors: themeColors } = useTheme();
-  const { prefs: notificationPrefs } = useNotifications();
-  const requestExpiryTiming = notificationPrefs?.requestExpiryTiming === 'end' ? 'end' : 'start';
   const [selectedTab, setSelectedTab] = useState('mine');
   const swipeableRefs = useRef({});
-  const timeToMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + (m || 0);
-  };
-
-  const isRequestExpired = (req) => {
-    const [y, m, d] = (req.date || '').split('-').map(Number);
-    if (!y || !m || !d) return false;
-    const startMins = timeToMinutes(req.startTime || '00:00');
-    const endMins = timeToMinutes(req.endTime || '23:59');
-    const isNextDay = endMins <= startMins;
-    const [endHours, endMinutes] = (req.endTime || '23:59').split(':').map(Number);
-    const endDateTime = isNextDay ? new Date(y, m - 1, d + 1, endHours || 0, endMinutes || 0, 0, 0) : new Date(y, m - 1, d, endHours || 23, endMinutes || 59, 0, 0);
-    return endDateTime < new Date();
-  };
 
   const isMatchFull = (req) => {
     const playersNeeded = req.playersNeeded || 2;
@@ -57,14 +37,11 @@ export default function HomeScreen({ navigation }) {
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const myCreatedRequests = pendingRequests.filter(
-    (req) =>
-      req.creatorId === currentUser?.uid &&
-      !isPendingCreatorUnfilledPastDeadline(req, requestExpiryTiming)
+    (req) => req.creatorId === currentUser?.uid
   );
   const incomingRequests = pendingRequests.filter(
     (req) =>
       req.creatorId !== currentUser?.uid &&
-      !isRequestExpired(req) &&
       req.responses?.[currentUser?.uid]?.status !== 'declined' &&
       req.responses?.[currentUser?.uid]?.status !== 'withdrawn' &&
       !isMatchFull(req)
@@ -161,32 +138,24 @@ export default function HomeScreen({ navigation }) {
   };
 
   const getFinalTimeRange = (request) => {
-    if (!request?.responses) {
+    if (!request) {
       return null;
     }
-    const accepted = Object.values(request.responses || {}).filter(
-      (resp) => resp?.status === 'accepted' && resp?.acceptedStart
-    );
-    if (accepted.length === 0) {
+    if (!request.finalStartTime) {
       return null;
     }
-    const acceptedTime = accepted[0];
-    if (!acceptedTime?.acceptedStart) return null;
-    const endTime =
-      acceptedTime.acceptedEnd ||
+    const endTime = request.finalEndTime ||
       (request.durationMinutes
         ? (() => {
-            const [hours, minutes] = (acceptedTime.acceptedStart || '').split(':').map(Number);
+            const [hours, minutes] = (request.finalStartTime || '').split(':').map(Number);
             const totalMinutes = hours * 60 + minutes + request.durationMinutes;
             const endHours = Math.floor(totalMinutes / 60) % 24;
             const endMinutes = totalMinutes % 60;
-            return `${endHours.toString().padStart(2, '0')}:${endMinutes
-              .toString()
-              .padStart(2, '0')}`;
+            return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
           })()
-        : null);
+        : request.endTime || null);
     return {
-      start: acceptedTime.acceptedStart,
+      start: request.finalStartTime,
       end: endTime,
     };
   };
@@ -292,7 +261,13 @@ export default function HomeScreen({ navigation }) {
           {
             text: t('details.cancelRequest'),
             style: 'destructive',
-            onPress: () => cancelRequest(item.id),
+            onPress: async () => {
+              try {
+                await cancelRequest(item.id);
+              } catch (e) {
+                Alert.alert(t('auth.loginTitle'), e.message === 'FORBIDDEN' ? t('errors.forbidden') : (e.message || t('auth.errorGeneric')));
+              }
+            },
           },
         ]
       );
@@ -385,6 +360,15 @@ export default function HomeScreen({ navigation }) {
             {showAllDeclinedCard && (
               <View style={styles.cancelRow}>
                 <TouchableOpacity
+                  style={styles.reinviteButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigation.navigate('Request', { copyFromRequestId: item.id });
+                  }}
+                >
+                  <Text style={styles.reinviteButtonText}>{t('details.reinvite')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={styles.cancelOnCardButton}
                   onPress={(e) => {
                     e.stopPropagation();
@@ -396,7 +380,18 @@ export default function HomeScreen({ navigation }) {
                         {
                           text: t('details.cancelRequest'),
                           style: 'destructive',
-                          onPress: () => cancelRequest(item.id),
+                          onPress: async () => {
+                            try {
+                              await cancelRequest(item.id);
+                            } catch (e) {
+                              Alert.alert(
+                                t('auth.loginTitle'),
+                                e.message === 'FORBIDDEN'
+                                  ? t('errors.forbidden')
+                                  : e.message || t('auth.errorGeneric')
+                              );
+                            }
+                          },
                         },
                       ]
                     );
@@ -742,6 +737,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  reinviteButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#2e7d32',
+    backgroundColor: 'rgba(46, 125, 50, 0.12)',
+  },
+  reinviteButtonText: {
+    fontSize: 14,
+    color: '#2e7d32',
+    fontWeight: '600',
   },
   allDeclinedBadgeText: {
     fontSize: 13,

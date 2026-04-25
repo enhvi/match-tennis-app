@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
-import { useNotifications } from './NotificationContext';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useNotifications, DEFAULT_PREFS } from './NotificationContext';
+import { getPrefKeyForNotificationType } from '../utils/notificationPrefsMap';
 import {
   addDoc,
   collection,
@@ -19,7 +20,7 @@ import {
   endAt,
 } from 'firebase/firestore';
 import { db, serverTimestamp } from '../firebaseConfig';
-import { shouldAutoExpirePendingRequest } from '../utils/requestExpiry';
+import { scheduleConfirmedMatchReminder, cancelMatchReminder } from '../utils/matchReminders';
 
 const AppContext = createContext();
 
@@ -41,8 +42,7 @@ export const AppProvider = ({
   photoURL = '',
   sports = [],
 }) => {
-  const { prefs: notificationPrefs } = useNotifications();
-  const expiredNotificationSent = useRef(new Set());
+  const { prefs: notificationPrefs } = useNotifications(); // requestExpiryTiming, local fallback
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
@@ -196,67 +196,6 @@ export const AppProvider = ({
     };
   }, [userId]);
 
-  useEffect(() => {
-    const getMatchEndDateTime = (request) => {
-      const accepted = Object.values(request.responses || {}).filter(
-        (r) => r?.status === 'accepted' && r?.acceptedStart
-      );
-      if (accepted.length === 0) return null;
-      const a = accepted[0];
-      if (!a?.acceptedStart) return null;
-      const endTime = a.acceptedEnd;
-      if (!endTime) {
-        if (request.durationMinutes && a.acceptedStart) {
-          const [h, m] = (a.acceptedStart || '').split(':').map(Number);
-          const totalMin = h * 60 + m + request.durationMinutes;
-          const endH = Math.floor(totalMin / 60) % 24;
-          const endM = totalMin % 60;
-          return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-        }
-        return request.endTime || null;
-      }
-      return endTime;
-    };
-
-    const timeToMinutes = (t) => {
-      if (!t) return 0;
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + (m || 0);
-    };
-
-    const toCheck = requests.filter((r) => r.status === 'confirmed');
-    toCheck.forEach((request) => {
-      const endTimeStr = getMatchEndDateTime(request);
-      if (!endTimeStr || !request.date) return;
-      const [y, m, d] = (request.date || '').split('-').map(Number);
-      const [endH, endM] = endTimeStr.split(':').map(Number);
-      if (!y || !m || !d) return;
-      const startMins = timeToMinutes(request.startTime);
-      const endMins = (endH || 0) * 60 + (endM || 0);
-      const isNextDay = endMins <= startMins;
-      const endDateTime = isNextDay ? new Date(y, m - 1, d + 1, endH || 0, endM || 0, 0, 0) : new Date(y, m - 1, d, endH || 0, endM || 0, 0, 0);
-      if (endDateTime < new Date()) {
-        completeMatch(request.id);
-      }
-    });
-
-    const expiryTiming = notificationPrefs?.requestExpiryTiming === 'end' ? 'end' : 'start';
-    const toExpire = requests.filter((r) => shouldAutoExpirePendingRequest(r, userId, expiryTiming));
-    toExpire.forEach((request) => {
-      expireRequest(request.id);
-      if (notificationPrefs?.matchExpired !== false && !expiredNotificationSent.current.has(request.id)) {
-        expiredNotificationSent.current.add(request.id);
-        addNotification(request.creatorId, {
-          type: 'matchExpired',
-          requestId: request.id,
-          sport: request.sport,
-          date: request.date,
-          relatedId: request.id,
-        });
-      }
-    });
-  }, [requests, userId, notificationPrefs?.matchExpired, notificationPrefs?.requestExpiryTiming]);
-
   const markNotificationAsRead = async (notificationId) => {
     if (!userId || userId === 'me' || !notificationId) return;
     try {
@@ -270,6 +209,13 @@ export const AppProvider = ({
   const addNotification = async (targetUserId, data) => {
     if (!targetUserId) return;
     try {
+      const prefKey = getPrefKeyForNotificationType(data.type);
+      if (prefKey) {
+        const targetSnap = await getDoc(doc(db, 'users', targetUserId));
+        const remote = targetSnap.exists() ? targetSnap.data().notificationPrefs : null;
+        const allowed = remote?.[prefKey] ?? DEFAULT_PREFS[prefKey] ?? true;
+        if (allowed === false) return;
+      }
       await addDoc(collection(db, 'users', targetUserId, 'notifications'), {
         ...data,
         createdAt: serverTimestamp(),
@@ -292,28 +238,12 @@ export const AppProvider = ({
       responses: {},
     };
     const docRef = await addDoc(collection(db, 'matchRequests'), newRequest);
-    const friendIds = requestData.friendIds || [];
-    for (const fid of friendIds) {
-      await addNotification(fid, {
-        type: 'matchRequest',
-        fromName: displayName || username,
-        fromUsername: username,
-        fromPhotoURL: photoURL,
-        requestId: docRef.id,
-        sport: requestData.sport,
-        date: requestData.date,
-        relatedId: docRef.id,
-      });
-    }
     return { id: docRef.id, ...newRequest };
   };
 
   const acceptTimeProposal = async (requestId, friendId, acceptedStart, acceptedEnd) => {
+    if (friendId !== userId) throw new Error('FORBIDDEN');
     const requestRef = doc(db, 'matchRequests', requestId);
-    let becameConfirmed = false;
-    let creatorId = null;
-    let acceptedIds = [];
-    let requestData = null;
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(requestRef);
       if (!snap.exists()) return;
@@ -329,8 +259,6 @@ export const AppProvider = ({
       if (existingAcceptedCount >= requiredAcceptances) {
         throw new Error('MATCH_FULL');
       }
-      requestData = data;
-      creatorId = data.creatorId;
       const responses = data.responses || {};
       const updated = {
         status: 'accepted',
@@ -346,67 +274,68 @@ export const AppProvider = ({
       const acceptedCount = Object.values(updatedResponses).filter(
         (r) => r?.status === 'accepted'
       ).length;
-      const declinedCount = Object.values(updatedResponses).filter(
-        (r) => r?.status === 'declined'
-      ).length;
       const updateData = { [`responses.${friendId}`]: updated };
-      if (acceptedCount >= requiredAcceptances && declinedCount === 0) {
-        updateData.status = 'confirmed';
-        becameConfirmed = true;
-        acceptedIds = Object.entries(updatedResponses)
-          .filter(([, r]) => r?.status === 'accepted')
-          .map(([id]) => id);
+      if (acceptedCount >= requiredAcceptances) {
+        updateData.readyForConfirmation = true;
       }
       transaction.update(requestRef, updateData);
     });
-    if (becameConfirmed && creatorId && requestData) {
-      await addNotification(creatorId, {
-        type: 'matchConfirmed',
-        fromName: displayName || username,
-        fromPhotoURL: photoURL,
-        requestId,
-        sport: requestData.sport,
-        date: requestData.date,
-        relatedId: requestId,
-      });
-      for (const aid of acceptedIds) {
-        if (aid !== creatorId) {
-          await addNotification(aid, {
-            type: 'matchConfirmed',
-            fromName: requestData.creatorDisplayName || requestData.creatorUsername,
-            fromPhotoURL: requestData.creatorPhotoURL,
-            requestId,
-            sport: requestData.sport,
-            date: requestData.date,
-            relatedId: requestId,
-          });
-        }
+  };
+
+  const confirmMatch = async (requestId, finalStartTime, finalEndTime = null) => {
+    const requestRef = doc(db, 'matchRequests', requestId);
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(requestRef);
+      if (!snap.exists()) throw new Error('NOT_FOUND');
+      const d = snap.data();
+      if (d.creatorId !== userId) throw new Error('FORBIDDEN');
+      if (d.status !== 'pending') throw new Error('INVALID_STATE');
+      const accepted = Object.values(d.responses || {}).filter((r) => r?.status === 'accepted');
+      const declined = Object.values(d.responses || {}).filter((r) => r?.status === 'declined');
+      const requiredAcceptances = Math.max((d.playersNeeded || 2) - 1, 1);
+      if (accepted.length < requiredAcceptances || declined.length > 0) {
+        throw new Error('INVALID_STATE');
       }
+      if (!finalStartTime) throw new Error('INVALID_FINAL_TIME');
+      transaction.update(requestRef, {
+        status: 'confirmed',
+        finalStartTime,
+        finalEndTime: finalEndTime || null,
+        readyForConfirmation: false,
+        finalizedBy: userId,
+        finalizedAt: serverTimestamp(),
+      });
+    });
+    const freshSnap = await getDoc(requestRef);
+    if (freshSnap.exists()) {
+      await scheduleConfirmedMatchReminder(requestId, freshSnap.data(), notificationPrefs);
     }
   };
 
-  const confirmMatch = async (requestId) => {
+  const completeMatch = async (requestId, feedbackRating = null) => {
+    await cancelMatchReminder(requestId);
     const requestRef = doc(db, 'matchRequests', requestId);
-    await updateDoc(requestRef, { status: 'confirmed' });
-  };
-
-  const completeMatch = async (requestId) => {
-    const requestRef = doc(db, 'matchRequests', requestId);
-    await updateDoc(requestRef, { status: 'completed', completedAt: serverTimestamp() });
-  };
-
-  const expireRequest = async (requestId) => {
-    const requestRef = doc(db, 'matchRequests', requestId);
-    await updateDoc(requestRef, {
-      status: 'expired',
-      expiredAt: serverTimestamp(),
-    });
+    const snap = await getDoc(requestRef);
+    if (!snap.exists()) throw new Error('NOT_FOUND');
+    const d = snap.data();
+    if (d.creatorId !== userId) throw new Error('FORBIDDEN');
+    if (d.status !== 'confirmed') throw new Error('INVALID_STATE');
+    const payload = {
+      status: 'completed',
+      completedAt: serverTimestamp(),
+    };
+    if (feedbackRating != null && Number.isFinite(feedbackRating) && feedbackRating >= 1 && feedbackRating <= 5) {
+      payload.creatorFeedbackRating = feedbackRating;
+    }
+    await updateDoc(requestRef, payload);
   };
 
   const cancelRequest = async (requestId, reason = '') => {
     const requestRef = doc(db, 'matchRequests', requestId);
     const requestSnap = await getDoc(requestRef);
-    const requestData = requestSnap.exists() ? requestSnap.data() : null;
+    if (!requestSnap.exists()) throw new Error('NOT_FOUND');
+    const requestData = requestSnap.data();
+    if (requestData.creatorId !== userId) throw new Error('FORBIDDEN');
     const trimmedReason = reason.trim();
     await updateDoc(requestRef, {
       status: 'cancelled',
@@ -415,32 +344,26 @@ export const AppProvider = ({
       cancelledBy: userId,
       cancelledByName: displayName || username || '',
     });
+    await cancelMatchReminder(requestId);
     if (requestData) {
-      const acceptedIds = Object.entries(requestData.responses || {})
-        .filter(([, r]) => r?.status === 'accepted')
-        .map(([id]) => id);
-      for (const aid of acceptedIds) {
-        if (aid !== userId) {
-          await addNotification(aid, {
-            type: 'matchCancelled',
-            fromName: displayName || username,
-            fromPhotoURL: photoURL,
-            requestId,
-            sport: requestData.sport,
-            body: trimmedReason || undefined,
-            relatedId: requestId,
-          });
-        }
-      }
+      // Match notifications are generated by Cloud Functions.
     }
   };
 
   const deleteRequest = async (requestId) => {
-    await deleteDoc(doc(db, 'matchRequests', requestId));
+    await cancelMatchReminder(requestId);
+    const requestRef = doc(db, 'matchRequests', requestId);
+    const snap = await getDoc(requestRef);
+    if (!snap.exists()) throw new Error('NOT_FOUND');
+    if (snap.data().creatorId !== userId) throw new Error('FORBIDDEN');
+    await deleteDoc(requestRef);
   };
 
   const updateRequest = async (requestId, requestData) => {
     const requestRef = doc(db, 'matchRequests', requestId);
+    const snap = await getDoc(requestRef);
+    if (!snap.exists()) throw new Error('NOT_FOUND');
+    if (snap.data().creatorId !== userId) throw new Error('FORBIDDEN');
     await updateDoc(requestRef, {
       ...requestData,
       status: 'pending',
@@ -450,6 +373,7 @@ export const AppProvider = ({
   };
 
   const acceptResponse = async (requestId, friendId) => {
+    if (friendId !== userId) throw new Error('FORBIDDEN');
     const requestRef = doc(db, 'matchRequests', requestId);
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(requestRef);
@@ -473,12 +397,14 @@ export const AppProvider = ({
       const updated = {
         ...existing,
         status: 'accepted',
+        acceptedStart: data.startTime,
+        acceptedEnd: data.endTime || null,
+        responderId: friendId,
+        responderName: displayName || '',
+        responderUsername: username || '',
+        responderPhotoURL: photoURL || '',
         updatedAt: serverTimestamp(),
       };
-
-      transaction.update(requestRef, {
-        [`responses.${friendId}`]: updated,
-      });
 
       const updatedResponses = { ...responses, [friendId]: updated };
       const acceptedCount = Object.values(updatedResponses).filter(
@@ -488,13 +414,18 @@ export const AppProvider = ({
         (resp) => resp?.status === 'declined'
       ).length;
 
-      if (acceptedCount >= requiredAcceptances && declinedCount === 0) {
-        transaction.update(requestRef, { status: 'confirmed' });
+      const updatePayload = {
+        [`responses.${friendId}`]: updated,
+      };
+      if (acceptedCount >= requiredAcceptances) {
+        updatePayload.readyForConfirmation = true;
       }
+      transaction.update(requestRef, updatePayload);
     });
   };
 
   const declineResponse = async (requestId, friendId, responderInfo = null) => {
+    if (friendId !== userId) throw new Error('FORBIDDEN');
     const requestRef = doc(db, 'matchRequests', requestId);
     const requestSnap = await getDoc(requestRef);
     const requestData = requestSnap.exists() ? requestSnap.data() : null;
@@ -512,18 +443,12 @@ export const AppProvider = ({
 
     await updateDoc(requestRef, updates);
     if (requestData?.creatorId) {
-      await addNotification(requestData.creatorId, {
-        type: 'matchDeclined',
-        fromName: responderInfo?.name || '',
-        fromPhotoURL: responderInfo?.photoURL,
-        requestId,
-        sport: requestData.sport,
-        relatedId: requestId,
-      });
+      // Match notifications are generated by Cloud Functions.
     }
   };
 
   const withdrawFromMatch = async (requestId, friendId, reason = '') => {
+    if (friendId !== userId) throw new Error('FORBIDDEN');
     const requestRef = doc(db, 'matchRequests', requestId);
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(requestRef);
@@ -551,24 +476,17 @@ export const AppProvider = ({
       transaction.update(requestRef, {
         [`responses.${friendId}`]: updated,
         status: acceptedCount < requiredAcceptances ? 'pending' : 'confirmed',
+        readyForConfirmation: acceptedCount >= requiredAcceptances,
+        finalStartTime: acceptedCount < requiredAcceptances ? null : data.finalStartTime || null,
+        finalEndTime: acceptedCount < requiredAcceptances ? null : data.finalEndTime || null,
       });
     });
 
     const afterSnap = await getDoc(requestRef);
-    if (afterSnap.exists() && notificationPrefs?.matchWithdrawn !== false) {
+    if (afterSnap.exists()) {
       const d = afterSnap.data();
-      if (d.status === 'pending' && d.creatorId && d.creatorId !== friendId) {
-        const resp = (d.responses || {})[friendId];
-        await addNotification(d.creatorId, {
-          type: 'matchWithdrawn',
-          fromName: resp?.responderName || resp?.responderUsername || '',
-          fromPhotoURL: resp?.responderPhotoURL,
-          requestId,
-          sport: d.sport,
-          date: d.date,
-          body: resp?.withdrawReason || undefined,
-          relatedId: requestId,
-        });
+      if (d.status === 'pending') {
+        await cancelMatchReminder(requestId);
       }
     }
   };

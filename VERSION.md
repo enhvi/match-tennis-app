@@ -1,4 +1,18 @@
-# Find A Match - Version 0.3.2
+# Match - Version 0.3.3
+
+## Release Date
+April 24, 2026
+
+## Changes from 0.3.2
+- Match notifications moved to server-side Cloud Function `onMatchRequestWrite`
+- Request flow updated: creator must explicitly confirm final match time (`readyForConfirmation` -> `confirmed`)
+- Expire/complete ownership consolidated to server maintenance function
+- Message unread badge now uses server-side conversation read-state (`readBy`)
+- Process docs synchronized (`ANFRAGE_UND_BESTAETIGUNGSABLAUF`, `PROZESS_ABLAUF_DIAGRAMM`, `PROZESS_SCHWACHSTELLEN`)
+
+---
+
+# Match - Version 0.3.2
 
 ## Release Date
 April 19, 2026
@@ -9,7 +23,7 @@ April 19, 2026
 
 ---
 
-# Find A Match - Version 0.3.1
+# Match - Version 0.3.1
 
 ## Release Date
 February 22, 2026
@@ -23,7 +37,7 @@ February 22, 2026
 
 ---
 
-# Find A Match - Version 0.3.0
+# Match - Version 0.3.0
 
 ## Release Date
 February 17, 2026
@@ -38,7 +52,7 @@ February 17, 2026
 
 ---
 
-# Find A Match - Version 0.2.7
+# Match - Version 0.2.7
 
 ## Release Date
 February 17, 2026
@@ -52,7 +66,7 @@ February 17, 2026
 
 ---
 
-# Find A Match - Version 0.2.6
+# Match - Version 0.2.6
 
 ## Release Date
 January 24, 2026
@@ -71,7 +85,7 @@ January 24, 2026
 
 ---
 
-# Find A Match - Version 0.2.5
+# Match - Version 0.2.5
 
 ## Release Date
 January 24, 2026
@@ -84,7 +98,7 @@ January 24, 2026
 
 ---
 
-# Find A Match - Version 0.2.3
+# Match - Version 0.2.3
 
 ## Release Date
 January 22, 2026
@@ -98,7 +112,7 @@ January 22, 2026
 
 ---
 
-# Find A Match - Version 0.2.2
+# Match - Version 0.2.2
 
 ## Release Date
 January 20, 2026
@@ -111,7 +125,7 @@ January 20, 2026
 
 ---
 
-# Find A Match - Version 0.2.1
+# Match - Version 0.2.1
 
 ## Release Date
 January 16, 2026
@@ -124,7 +138,7 @@ January 16, 2026
 
 ---
 
-# Find A Match - Version 0.2.0
+# Match - Version 0.2.0
 
 ## Release Date
 January 12, 2025
@@ -137,13 +151,13 @@ January 12, 2025
 
 ---
 
-# Find A Match - Version 0.1.0
+# Match - Version 0.1.0
 
 ## Release Date
 January 10, 2025
 
 ## Overview
-Initial release of Find A Match - a mobile application for finding tennis partners and scheduling matches.
+Initial release of Match - a mobile application for finding tennis partners and scheduling matches.
 
 ## Features
 - ✅ Create tennis match requests

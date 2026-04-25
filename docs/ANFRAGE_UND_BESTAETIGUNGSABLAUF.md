@@ -1,198 +1,127 @@
-# Anfrage- und Bestätigungsablauf
+# Anfrage- und Bestätigungsablauf (v0.3.3)
 
-Dieses Dokument beschreibt den prozesstechnischen Ablauf von Match-Anfragen von der Erstellung bis zur Bestätigung, Ablehnung oder Stornierung.
+Dieses Dokument beschreibt den aktuellen Ablauf nach Umstellung auf serverseitige Match-Notifications und Creator-Finalisierung der Zeit.
 
 ---
 
-## 1. Übersicht der Status
+## 1. Statusübersicht
 
 | Status | Bedeutung |
 |-------|-----------|
-| **pending** | Anfrage offen, wartet auf Antworten |
-| **confirmed** | Match bestätigt (genug Akzeptanzen) |
-| **completed** | Match wurde gespielt |
-| **expired** | Zeitfenster abgelaufen, zu wenig Akzeptanzen |
-| **cancelled** | Von Creator oder Teilnehmer abgesagt |
+| **pending** | Anfrage offen, Antworten laufen |
+| **pending + readyForConfirmation=true** | Genug Zusagen vorhanden, Creator muss finale Zeit bestätigen |
+| **confirmed** | Creator hat finale Zeit bestätigt (`finalStartTime`/`finalEndTime`) |
+| **completed** | Match wurde gespielt/automatisch abgeschlossen |
+| **expired** | Anfrage lief serverseitig ab |
+| **cancelled** | Anfrage wurde storniert |
 
 ---
 
-## 2. Erstellung einer Anfrage (Creator)
+## 2. Erstellung (Creator)
 
 ```
-Creator wählt:
-├── Datum
-├── Zeitfenster (Start–Ende) oder feste Dauer
-├── Sport
-├── Optional: Ort, Kommentar
-├── Anzahl Spieler (z.B. 2 = 1v1)
-└── Freunde (alle mit Sport oder ausgewählte)
-
-→ sendRequest()
-→ Status: pending
-→ Benachrichtigung "Match-Anfrage" an alle eingeladenen Freunde
+Creator erstellt Anfrage
+-> sendRequest()
+-> status = pending
+-> Cloud Function erzeugt matchRequest für Eingeladene
 ```
 
-**Ergebnis:** Request in Firestore mit `status: pending`, `responses: {}`  
-**Anzeige:** Creator sieht in „Meine Anfragen“, Eingeladene in „Anfragen von Freunden“
+Gespeicherte Kerndaten: Datum, Start/Ende, Sport, Spieleranzahl, Freundeliste, optionale Felder.
 
 ---
 
-## 3. Hauptablauf: Antworten auf eine Anfrage
+## 3. Antworten (Eingeladene)
 
-### 3.1 Eingeladener sieht die Anfrage
-
-- **Wo:** Tab „Anfragen von Freunden“ (incoming)
-- **Filter:** Nicht angezeigt, wenn:
-  - bereits abgelehnt (`declined`)
-  - bereits zurückgezogen (`withdrawn`)
-  - Match bereits voll (`isMatchFull`)
-  - Anfrage abgelaufen (`expired`)
-
-### 3.2 Eingeladener kann: **Ablehnen** (ohne vorher zu akzeptieren)
+### 3.1 Ablehnen
 
 ```
-Eingeladener → "Ablehnen" → Bestätigungsdialog
-→ declineResponse()
-→ responses[friendId].status = 'declined'
-→ Benachrichtigung "Match abgelehnt" an Creator
-→ Anfrage verschwindet für Eingeladenen aus "Anfragen von Freunden"
+declineResponse()
+-> responses[user].status = declined
+-> Cloud Function erzeugt matchDeclined an Creator
 ```
 
-**Anzeige:** Creator sieht in „Meine Anfragen“ weiterhin die Anfrage (mit „abgelehnt“ bei der Person)
-
-### 3.3 Eingeladener kann: **Ablehnen** (nach vorheriger Akzeptanz)
+### 3.2 Zusage zurückziehen
 
 ```
-Eingeladener hatte akzeptiert → "Zusage zurückziehen"
-→ withdrawFromMatch()
-→ responses[friendId].status = 'withdrawn'
-→ Wenn genug Akzeptanzen übrig: Status bleibt confirmed
-→ Wenn zu wenig: Status = pending
-→ Benachrichtigung "Teilnehmer hat abgesagt" an Creator
-→ Anfrage verschwindet für Eingeladenen aus "Anfragen von Freunden"
+withdrawFromMatch()
+-> responses[user].status = withdrawn
+-> wenn nicht mehr genug Zusagen: status bleibt/ wird pending
+-> Cloud Function erzeugt matchWithdrawn an Creator
 ```
 
-**Anzeige:** Creator sieht in „Meine Anfragen“ die Anfrage wieder (falls pending)
-
-### 3.4 Eingeladener kann: **Akzeptieren**
+### 3.3 Akzeptieren
 
 ```
-Eingeladener wählt Startzeit (optional Endzeit bei Dauer)
-→ acceptTimeProposal(requestId, friendId, acceptedStart, acceptedEnd)
-→ responses[friendId] = { status: 'accepted', acceptedStart, acceptedEnd, ... }
-→ Prüfung: Genug Akzeptanzen? (acceptedCount >= requiredAcceptances)
-   → Ja: status = 'confirmed'
-   → Benachrichtigung "Match bestätigt" an Creator + alle Akzeptierten
-   → Nein: bleibt pending
+acceptTimeProposal(...) oder acceptResponse(...)
+-> responses[user].status = accepted (+ acceptedStart/acceptedEnd)
+-> wenn acceptedCount >= requiredAcceptances:
+     readyForConfirmation = true
+-> noch KEIN confirmed
 ```
 
-**Logik:** `requiredAcceptances = max(playersNeeded - 1, 1)`  
-→ Bei 2 Spielern: 1 Akzeptanz reicht  
-→ Bei 3 Spielern: 2 Akzeptanzen nötig
+`requiredAcceptances = max(playersNeeded - 1, 1)`.
 
 ---
 
-## 4. Bestätigung (confirmed)
+## 4. Explizite Finalisierung durch Creator
 
-- **Bedingung:** `acceptedCount >= requiredAcceptances` **und** `declinedCount === 0`
-- **Benachrichtigungen:** Creator, alle Akzeptierten
-- **Anzeige:** Tab „Bestätigte Matches“  
-- **Teilnehmerliste:** Nur Creator + Akzeptierte (keine weiteren Eingeladenen)
+```
+Creator wählt einen akzeptierten Zeitvorschlag
+-> confirmMatch(requestId, finalStartTime, finalEndTime)
+-> status = confirmed
+-> finalStartTime/finalEndTime gesetzt
+-> readyForConfirmation = false
+-> Cloud Function erzeugt matchConfirmed
+```
+
+Erst ab diesem Schritt gilt das Match als final bestätigt.
 
 ---
 
-## 5. Ablauf: Ablaufen (expired)
+## 5. Serverseitige Automatik
+
+### 5.1 Expire
 
 ```
-Automatisch (wenn Zeitfenster vorbei):
-→ startDateTime < jetzt
-→ acceptedCount < requiredAcceptances
-→ expireRequest()
-→ status = 'expired'
-→ Benachrichtigung "Anfrage abgelaufen" an Creator
+scheduledMatchMaintenance (Cloud Function)
+-> pending + Frist überschritten + zu wenig Zusagen
+-> status = expired
+-> Cloud Function erzeugt matchExpired an Creator
 ```
+
+### 5.2 Complete
+
+```
+scheduledMatchMaintenance (Cloud Function)
+-> confirmed + Endzeit überschritten
+-> status = completed
+```
+
+Hinweis: Endzeit basiert auf `finalEndTime` bzw. abgeleitet von `finalStartTime + duration`.
 
 ---
 
-## 6. Ablauf: Stornierung (cancelled)
-
-### 6.1 Creator storniert
+## 6. Stornierung
 
 ```
-Creator → "Anfrage stornieren" → Pflicht: Begründung
-→ cancelRequest(requestId, reason)
-→ status = 'cancelled'
-→ cancelReason, cancelledBy
-→ Benachrichtigung "Match abgesagt" an alle Akzeptierten
-
-Anzeige: Nur Creator + Akzeptierte in Teilnehmerliste
-Begründung + "Storniert" nur bei der Person, die abgesagt hat (cancelledBy)
-```
-
-### 6.2 Teilnehmer storniert (zurückziehen)
-
-- Siehe Abschnitt 3.3 (withdrawFromMatch)
-
----
-
-## 7. Ablauf-Diagramm (vereinfacht)
-
-```
-                    [Creator erstellt Anfrage]
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │   status:       │
-                    │   pending       │
-                    └────────┬────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
-   [Eingeladener        [Eingeladener        [Zeit abgelaufen
-    lehnt ab]           akzeptiert]         + zu wenig]
-        │                    │                    │
-        ▼                    ▼                    ▼
-   declined            acceptedCount         expired
-   (bleibt pending)    >= required?
-                              │
-                    ┌─────────┴─────────┐
-                    │                   │
-                    ▼                   ▼
-              confirmed             pending
-              (Match bestätigt)      (wartet weiter)
-                    │
-        ┌──────────┼──────────┐
-        │          │          │
-        ▼          ▼          ▼
-   [Creator    [Teilnehmer  [Match wird
-    storniert]  zieht zurück] gespielt]
-        │          │          │
-        ▼          ▼          ▼
-   cancelled   pending oder  completed
-               confirmed
+cancelRequest(reason)
+-> status = cancelled
+-> cancelReason/cancelledBy gesetzt
+-> Cloud Function erzeugt matchCancelled oder matchLateCancel
 ```
 
 ---
 
-## 8. Zusammenfassung der Aktionen
+## 7. Anzeigen in der App
 
-| Rolle | Aktion | Ergebnis |
-|-------|--------|----------|
-| Creator | Anfrage erstellen | pending, Benachrichtigung an Eingeladene |
-| Creator | Ablaufen lassen | expired (automatisch) |
-| Creator | Stornieren | cancelled | 
-| Eingeladener | Ablehnen | declined, Benachrichtigung an Creator |
-| Eingeladener | Akzeptieren | accepted, ggf. confirmed |
-| Eingeladener | Zusage zurückziehen | withdrawn, ggf. pending, Benachrichtigung an Creator |
-| Creator | Als gespielt markieren | completed |
+| Bereich | Sicht |
+|--------|-------|
+| **Meine Anfragen** | Creator sieht `pending` (inkl. ggf. `readyForConfirmation`) |
+| **Anfragen von Freunden** | Eingeladene sehen offene `pending`, außer declined/withdrawn/voll |
+| **Bestätigte Matches** | Nur `confirmed` (mit finaler Zeit) für Creator und akzeptierte Teilnehmer |
 
 ---
 
-## 9. Anzeige-Regeln (UI)
+## 8. Messaging-Read-Status
 
-| Tab | Sicht für |
-|-----|-----------|
-| Meine Anfragen | Creator, pending, nicht expired |
-| Anfragen von Freunden | Eingeladener, pending, nicht declined/withdrawn, nicht voll |
-| Bestätigte Matches | Creator + Akzeptierte, confirmed |
+Ungelesen-Badge basiert auf serverseitigem `conversations.readBy.<uid>` statt lokalem Speicher und ist dadurch geräteübergreifend konsistent.

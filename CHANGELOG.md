@@ -1,9 +1,22 @@
 # Changelog
 
-All notable changes to Find A Match will be documented in this file.
+All notable changes to Match will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.3] - 2026-04-24
+
+### Added
+- Match lifecycle notifications are now generated server-side via Cloud Function `onMatchRequestWrite` (`matchRequest`, `matchDeclined`, `matchWithdrawn`, `matchConfirmed`, `matchExpired`, `matchCancelled`, `matchLateCancel`)
+- Creator finalization flow: after enough accepts, requests enter `readyForConfirmation`; creator explicitly confirms the final time (`finalStartTime`/`finalEndTime`)
+- Conversation read-state now persists server-side in `conversations.readBy.<uid>` for cross-device unread badge consistency
+
+### Changed
+- Status ownership for `expired/completed` moved to server scheduling (`scheduledMatchMaintenance`), removing duplicate client auto-transition logic
+- Process documentation updated to reflect deployed server-first flow and final-time confirmation
+
+---
 
 ## [0.3.2] - 2026-04-19
 
@@ -156,7 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-01-10
 
 ### Added
-- Initial release of Find A Match
+- Initial release of Match
 - Home screen with pending requests and confirmed matches display
 - Create tennis match requests with date and time range selection
 - Friend selection for match requests

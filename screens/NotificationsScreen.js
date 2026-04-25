@@ -31,6 +31,10 @@ export default function NotificationsScreen({ navigation }) {
         return item.fromName ? t('notifications.type.matchWithdrawn') + ': ' + item.fromName : t('notifications.type.matchWithdrawn');
       case 'matchCancelled':
         return t('notifications.type.matchCancelled');
+      case 'matchLateCancel':
+        return t('notifications.type.matchLateCancel');
+      case 'matchReminder':
+        return t('notifications.type.matchReminder');
       case 'matchExpired':
         return t('notifications.type.matchExpired');
       case 'friendAccepted':
@@ -66,7 +70,7 @@ export default function NotificationsScreen({ navigation }) {
     }
     if (item.type === 'friendRequest' && item.relatedId) {
       navigation.navigate('Friends');
-    } else if ((item.type === 'matchRequest' || item.type === 'matchConfirmed' || item.type === 'matchCancelled' || item.type === 'matchExpired' || item.type === 'matchWithdrawn') && item.requestId) {
+    } else if ((item.type === 'matchRequest' || item.type === 'matchConfirmed' || item.type === 'matchCancelled' || item.type === 'matchLateCancel' || item.type === 'matchExpired' || item.type === 'matchWithdrawn' || item.type === 'matchReminder') && item.requestId) {
       navigation.navigate('Requests', { requestId: item.requestId });
     } else if (item.type === 'friendAccepted' && item.relatedId) {
       navigation.navigate('Friends');

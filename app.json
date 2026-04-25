@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Find A Match",
-    "slug": "find-a-match",
-    "version": "0.3.2",
+    "name": "Match",
+    "slug": "match",
+    "version": "0.3.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,7 +30,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "find-a-match",
+    "scheme": "match",
     "extra": {
       "googleWebClientId": "1083932941306-rfjueotkdvve9kf2jjlbsopou4ree4l8.apps.googleusercontent.com"
     }

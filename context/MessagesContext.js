@@ -90,6 +90,22 @@ export function MessagesProvider({ children }) {
     return () => unsub();
   }, [userId]);
 
+  const markConversationRead = useCallback(
+    async (conversationId, readAtMillis = Date.now()) => {
+      if (!userId || !conversationId) return;
+      const safeMillis = Number(readAtMillis);
+      if (!Number.isFinite(safeMillis) || safeMillis <= 0) return;
+      try {
+        await updateDoc(doc(db, 'conversations', conversationId), {
+          [`readBy.${userId}`]: serverTimestamp(),
+        });
+      } catch (e) {
+        console.warn('Persist readBy value', e);
+      }
+    },
+    [userId]
+  );
+
   const sendMessage = useCallback(
     async (friendId, text) => {
       if (!userId) {
@@ -123,10 +139,16 @@ export function MessagesProvider({ children }) {
         await setDoc(convRef, {
           participants: [userId, friendId].sort(),
           createdAt: serverTimestamp(),
+          readBy: {
+            [userId]: serverTimestamp(),
+          },
           ...meta,
         });
       } else {
-        await updateDoc(convRef, meta);
+        await updateDoc(convRef, {
+          ...meta,
+          [`readBy.${userId}`]: serverTimestamp(),
+        });
       }
 
       await addDoc(messagesCol, {
@@ -141,12 +163,22 @@ export function MessagesProvider({ children }) {
   const value = useMemo(
     () => ({
       conversations: userId ? conversations : [],
+      unreadConversationsCount: userId
+        ? conversations.filter((c) => {
+            if (c.lastMessageSenderId === userId) return false;
+            const lastMessageMs = Math.max(toMillis(c.lastMessageAt), toMillis(c.createdAt));
+            if (!lastMessageMs) return false;
+            const lastReadMs = toMillis(c.readBy?.[userId]);
+            return lastMessageMs > lastReadMs;
+          }).length
+        : 0,
       loading: userId ? loading : false,
       listError: userId ? listError : null,
+      markConversationRead,
       sendMessage,
       maxMessageLength: MAX_MESSAGE_LENGTH,
     }),
-    [userId, conversations, loading, listError, sendMessage]
+    [userId, conversations, loading, listError, markConversationRead, sendMessage]
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

@@ -1,13 +1,14 @@
 {
-  "name": "find-a-match",
-  "version": "0.3.2",
+  "name": "match",
+  "version": "0.3.3",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "deploy:rules": "npx firebase-tools deploy --only firestore:rules"
+    "deploy:rules": "npx firebase-tools deploy --only firestore:rules",
+    "deploy:functions": "npx firebase-tools deploy --only functions"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -22,6 +23,7 @@
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.8",
     "expo-image-picker": "~17.0.10",
+    "expo-notifications": "^0.32.16",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.10",
     "firebase": "^12.8.0",

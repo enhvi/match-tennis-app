@@ -1,4 +1,4 @@
-# Tennis App
+# Match
 
 A cross-platform mobile application built with React Native and Expo that works on both iOS and Android.
 
@@ -87,7 +87,7 @@ eas build --platform android
 ## Project Structure
 
 ```
-tennis-app/
+match/
 ├── App.js              # Main app component
 ├── components/         # Shared UI components
 ├── context/            # App/Auth/Language contexts

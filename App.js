@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
+import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -32,7 +33,15 @@ import NotificationsScreen from './screens/NotificationsScreen';
 import MessagesScreen from './screens/MessagesScreen';
 import ChatScreen from './screens/ChatScreen';
 import CreatePlaceholderScreen from './screens/CreatePlaceholderScreen';
-import { MessagesProvider } from './context/MessagesContext';
+import { MessagesProvider, useMessages } from './context/MessagesContext';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -63,6 +72,7 @@ const TabNavigator = () => {
   const { t } = useLanguage();
   const { colors } = useTheme();
   const { notifications = [] } = useApp();
+  const { unreadConversationsCount = 0 } = useMessages();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -143,6 +153,12 @@ const TabNavigator = () => {
         options={{
           title: t('messages.title'),
           tabBarLabel: t('tabs.messages'),
+          tabBarBadge:
+            unreadConversationsCount > 0
+              ? unreadConversationsCount > 9
+                ? '9+'
+                : unreadConversationsCount
+              : undefined,
         }}
       />
       <Tab.Screen
@@ -205,6 +221,12 @@ const LoadingScreen = () => {
 
 const RootNavigator = () => {
   const { user, profile, loading } = useAuth();
+
+  useEffect(() => {
+    if (!user || Platform.OS === 'web') return undefined;
+    Notifications.requestPermissionsAsync().catch(() => {});
+    return undefined;
+  }, [user]);
 
   if (loading) {
     return <LoadingScreen />;

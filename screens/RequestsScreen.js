@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,13 +14,16 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { openMatchInGoogleCalendar } from '../utils/calendarExport';
 
 export default function RequestsScreen({ navigation, route }) {
   const {
     requests,
     friends,
     acceptTimeProposal,
+    acceptResponse,
     completeMatch,
+    confirmMatch,
     cancelRequest,
     declineResponse,
     withdrawFromMatch,
@@ -87,6 +90,24 @@ export default function RequestsScreen({ navigation, route }) {
   const requiredAcceptances = Math.max(playersNeeded - 1, 1);
   const acceptedCount = Object.values(responses).filter((r) => r?.status === 'accepted').length;
   const isMatchFull = acceptedCount >= requiredAcceptances;
+  const declinedCount = Object.values(responses).filter((r) => r?.status === 'declined').length;
+  const acceptedResponses = Object.entries(responses)
+    .filter(([, resp]) => resp?.status === 'accepted' && resp?.acceptedStart)
+    .map(([friendId, resp]) => ({ friendId, ...resp }));
+  const canCreatorFinalize =
+    isCreator && request.status === 'pending' && acceptedCount >= requiredAcceptances && declinedCount === 0;
+  const [selectedFinalResponderId, setSelectedFinalResponderId] = useState(
+    acceptedResponses[0]?.friendId || null
+  );
+  useEffect(() => {
+    if (!acceptedResponses.length) {
+      setSelectedFinalResponderId(null);
+      return;
+    }
+    if (!acceptedResponses.some((r) => r.friendId === selectedFinalResponderId)) {
+      setSelectedFinalResponderId(acceptedResponses[0].friendId);
+    }
+  }, [acceptedResponses, selectedFinalResponderId]);
 
   const isConfirmedOrCompleted = request.status === 'confirmed' || request.status === 'completed';
   const participantsList = isConfirmedOrCompleted || isCancelled
@@ -164,6 +185,15 @@ export default function RequestsScreen({ navigation, route }) {
     return minutesToTime(startMinutes + duration);
   };
 
+  const mapRequestError = (err) => {
+    if (err.message === 'MATCH_FULL') return t('details.matchFullErrorDetail');
+    if (err.message === 'FORBIDDEN') return t('errors.forbidden');
+    if (err.message === 'NOT_FOUND') return t('details.notFound');
+    if (err.message === 'INVALID_STATE') return t('errors.invalidState');
+    if (err.message === 'INVALID_FINAL_TIME') return t('request.errorTime');
+    return err.message || t('auth.errorGeneric');
+  };
+
   const sendProposal = async (startTime) => {
     try {
       const duration = request.durationMinutes;
@@ -185,8 +215,16 @@ export default function RequestsScreen({ navigation, route }) {
       }
       Alert.alert(t('request.success'), t('details.matchConfirmed'));
     } catch (err) {
-      const message = err.message === 'MATCH_FULL' ? t('details.matchFullError') : (err.message || t('auth.errorGeneric'));
-      Alert.alert(t('auth.loginTitle'), message);
+      Alert.alert(t('auth.loginTitle'), mapRequestError(err));
+    }
+  };
+
+  const handleAcceptSimple = async () => {
+    try {
+      await acceptResponse(request.id, userId);
+      Alert.alert(t('request.success'), t('details.matchConfirmed'));
+    } catch (err) {
+      Alert.alert(t('auth.loginTitle'), mapRequestError(err));
     }
   };
 
@@ -231,13 +269,27 @@ export default function RequestsScreen({ navigation, route }) {
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('details.completeMatch'),
-          onPress: async () => {
-            await completeMatch(request.id);
-            Alert.alert(t('request.success'), t('details.matchCompleted'));
+          onPress: () => {
+            Alert.alert(t('details.feedbackTitle'), t('details.feedbackBody'), [
+              { text: t('details.skipFeedback'), onPress: () => runComplete(null) },
+              ...[1, 2, 3, 4, 5].map((n) => ({
+                text: `${n}★`,
+                onPress: () => runComplete(n),
+              })),
+            ]);
           },
         },
       ]
     );
+  };
+
+  const runComplete = async (rating) => {
+    try {
+      await completeMatch(request.id, rating);
+      Alert.alert(t('request.success'), t('details.matchCompleted'));
+    } catch (err) {
+      Alert.alert(t('auth.loginTitle'), mapRequestError(err));
+    }
   };
 
   const handleCancelRequest = () => {
@@ -250,12 +302,32 @@ export default function RequestsScreen({ navigation, route }) {
           text: t('details.cancelRequest'),
           style: 'destructive',
           onPress: async () => {
-            await cancelRequest(request.id);
-            navigation.goBack();
+            try {
+              await cancelRequest(request.id);
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert(t('auth.loginTitle'), mapRequestError(err));
+            }
           },
         },
       ]
     );
+  };
+
+  const handleConfirmFinalTime = async () => {
+    try {
+      const chosen =
+        acceptedResponses.find((r) => r.friendId === selectedFinalResponderId) ||
+        acceptedResponses[0];
+      if (!chosen?.acceptedStart) {
+        Alert.alert(t('auth.loginTitle'), t('details.notFound'));
+        return;
+      }
+      await confirmMatch(request.id, chosen.acceptedStart, chosen.acceptedEnd || null);
+      Alert.alert(t('request.success'), t('details.matchConfirmed'));
+    } catch (err) {
+      Alert.alert(t('auth.loginTitle'), mapRequestError(err));
+    }
   };
 
   const handleCancelConfirmedMatch = () => {
@@ -273,9 +345,13 @@ export default function RequestsScreen({ navigation, route }) {
           text: t('details.cancelMatch'),
           style: 'destructive',
           onPress: async () => {
-            await cancelRequest(request.id, trimmedReason);
-            setCancelReason('');
-            setShowCancelReason(false);
+            try {
+              await cancelRequest(request.id, trimmedReason);
+              setCancelReason('');
+              setShowCancelReason(false);
+            } catch (err) {
+              Alert.alert(t('auth.loginTitle'), mapRequestError(err));
+            }
           },
         },
       ]
@@ -333,18 +409,17 @@ export default function RequestsScreen({ navigation, route }) {
           text: t('details.deleteRequest'),
           style: 'destructive',
           onPress: async () => {
-            await deleteRequest(request.id);
-            navigation.goBack();
+            try {
+              await deleteRequest(request.id);
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert(t('auth.loginTitle'), mapRequestError(err));
+            }
           },
         },
       ]
     );
   };
-
-  const isInvitedWithNoResponse =
-    !isCreator &&
-    (request.friendIds || []).includes(userId) &&
-    !(responses[userId] && responses[userId].status);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -358,6 +433,12 @@ export default function RequestsScreen({ navigation, route }) {
   };
 
   const getFinalTimeRange = () => {
+    if (request.finalStartTime) {
+      return {
+        start: request.finalStartTime,
+        end: request.finalEndTime || request.endTime || null,
+      };
+    }
     const accepted = Object.entries(responses)
       .filter(([_, resp]) => resp?.status === 'accepted' && resp?.acceptedStart)
       .map(([id, resp]) => ({ responderId: id, ...resp }));
@@ -463,6 +544,55 @@ export default function RequestsScreen({ navigation, route }) {
           ) : null}
         </View>
 
+        {(request.status === 'confirmed' || request.status === 'completed') &&
+          Object.entries(responses).some(([, r]) => r?.status === 'accepted') && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.headingBlue }]}>
+                {t('details.acceptedTimesTitle')}
+              </Text>
+              {Object.entries(responses)
+                .filter(([, r]) => r?.status === 'accepted')
+                .map(([fid, r]) => {
+                  const friend =
+                    fid === request.creatorId
+                      ? {
+                          id: request.creatorId,
+                          displayName: request.creatorDisplayName,
+                          username: request.creatorUsername,
+                        }
+                      : requestFriends.find((f) => f.id === fid) || { id: fid };
+                  const label =
+                    fid === request.creatorId
+                      ? request.creatorDisplayName || request.creatorUsername || t('details.organizer')
+                      : requestFriendLabel(friend);
+                  const end =
+                    r.acceptedEnd ||
+                    (request.durationMinutes && r.acceptedStart
+                      ? getProposedEnd(r.acceptedStart, request.durationMinutes)
+                      : null);
+                  return (
+                    <Text key={fid} style={[styles.acceptedTimeLine, { color: colors.text }]}>
+                      {label}: {r.acceptedStart || '—'}
+                      {end ? ` – ${end}` : ''}
+                    </Text>
+                  );
+                })}
+            </View>
+          )}
+
+        {request.status === 'confirmed' && finalTime && finalTime.start && (
+          <TouchableOpacity
+            style={[styles.calendarButton, { borderColor: colors.border, backgroundColor: colors.card2 }]}
+            onPress={() =>
+              openMatchInGoogleCalendar(request, finalTime.start, finalTime.end)
+            }
+          >
+            <Text style={[styles.calendarButtonText, { color: colors.primary }]}>
+              {t('details.addToCalendar')}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.headingBlue }]}>{t('details.participants')}</Text>
           {participantsList.map((person) => {
@@ -511,39 +641,52 @@ export default function RequestsScreen({ navigation, route }) {
                   </View>
                 ) : canRespond ? (
                   <View>
-                    <View style={styles.timeRow}>
-                      <TouchableOpacity
-                        style={[styles.timePickerButton, { backgroundColor: colors.card3, borderColor: colors.border }]}
-                        onPress={() => handleAcceptTime(userId)}
-                      >
-                        <Text style={[styles.timePickerText, { color: colors.text }]}>
-                          {t('details.startTime')}: {proposedStartTime}
-                        </Text>
-                      </TouchableOpacity>
-                      <Text style={[styles.timePickerText, { color: colors.text }]}>
-                        {t('details.endTime')}: {getProposedEnd(proposedStartTime, request.durationMinutes) || '--'}
-                      </Text>
-                    </View>
-                    <View style={styles.responseActions}>
-                      <TouchableOpacity
-                        style={styles.acceptButton}
-                        onPress={() => sendProposal(proposedStartTime)}
-                      >
-                        <Text style={styles.acceptButtonText}>{t('details.acceptTime')}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.declineButton}
-                        onPress={handleDeclineMatch}
-                      >
-                        <Text style={styles.declineButtonText}>{t('details.decline')}</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {!request.durationMinutes ? (
+                      <View style={styles.responseActions}>
+                        <TouchableOpacity style={styles.acceptButton} onPress={handleAcceptSimple}>
+                          <Text style={styles.acceptButtonText}>{t('details.acceptSimple')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.declineButton} onPress={handleDeclineMatch}>
+                          <Text style={styles.declineButtonText}>{t('details.decline')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.timeRow}>
+                          <TouchableOpacity
+                            style={[styles.timePickerButton, { backgroundColor: colors.card3, borderColor: colors.border }]}
+                            onPress={() => handleAcceptTime(userId)}
+                          >
+                            <Text style={[styles.timePickerText, { color: colors.text }]}>
+                              {t('details.startTime')}: {proposedStartTime}
+                            </Text>
+                          </TouchableOpacity>
+                          <Text style={[styles.timePickerText, { color: colors.text }]}>
+                            {t('details.endTime')}: {getProposedEnd(proposedStartTime, request.durationMinutes) || '--'}
+                          </Text>
+                        </View>
+                        <View style={styles.responseActions}>
+                          <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => sendProposal(proposedStartTime)}
+                          >
+                            <Text style={styles.acceptButtonText}>{t('details.acceptTime')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.declineButton}
+                            onPress={handleDeclineMatch}
+                          >
+                            <Text style={styles.declineButtonText}>{t('details.decline')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </>
+                    )}
                   </View>
                 ) : (
                   <Text style={[styles.waitingText, { color: colors.textSecondary }]}>{t('details.waiting')}</Text>
                 )}
 
-                {canRespond && request.durationMinutes && !isCancelled && !isExpired && request.status === 'pending' && (
+                {canRespond && Boolean(request.durationMinutes) && !isCancelled && !isExpired && request.status === 'pending' && (
                   <View style={styles.suggestionSection}>
                     <Text style={[styles.suggestionLabel, { color: colors.textSecondary }]}>{t('details.suggestedTimes')}</Text>
                     <View style={styles.suggestionRow}>
@@ -585,6 +728,43 @@ export default function RequestsScreen({ navigation, route }) {
                 {t('details.declinedBy')}: {declinedBy.join(', ')}
               </Text>
             )}
+          </View>
+        )}
+
+        {canCreatorFinalize && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.headingBlue }]}>
+              {t('details.acceptedTimesTitle')}
+            </Text>
+            {acceptedResponses.map((r) => {
+              const friend = requestFriends.find((f) => f.id === r.friendId);
+              const label =
+                r.responderName ||
+                r.responderUsername ||
+                friend?.displayName ||
+                friend?.username ||
+                r.friendId;
+              const isSelected = selectedFinalResponderId === r.friendId;
+              return (
+                <TouchableOpacity
+                  key={r.friendId}
+                  style={[
+                    styles.finalTimeOption,
+                    { borderColor: colors.border, backgroundColor: colors.card2 },
+                    isSelected && { borderColor: colors.primary, backgroundColor: 'rgba(111, 208, 139, 0.2)' },
+                  ]}
+                  onPress={() => setSelectedFinalResponderId(r.friendId)}
+                >
+                  <Text style={[styles.finalTimeOptionText, { color: colors.text }]}>
+                    {label}: {r.acceptedStart}
+                    {r.acceptedEnd ? ` - ${r.acceptedEnd}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.completeButton} onPress={handleConfirmFinalTime}>
+              <Text style={styles.completeButtonText}>{t('details.confirmed')}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -653,15 +833,6 @@ export default function RequestsScreen({ navigation, route }) {
             onPress={handleWithdrawFromMatch}
           >
             <Text style={styles.cancelButtonText}>{t('details.withdrawMatch')}</Text>
-          </TouchableOpacity>
-        )}
-
-        {isInvitedWithNoResponse && !isCancelled && !isExpired && !isMatchFull && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDeleteRequest}
-          >
-            <Text style={styles.deleteButtonText}>{t('details.deleteRequest')}</Text>
           </TouchableOpacity>
         )}
 
@@ -1066,5 +1237,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e74c3c',
     textAlign: 'center',
+  },
+  acceptedTimeLine: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  finalTimeOption: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  finalTimeOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  calendarButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  calendarButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

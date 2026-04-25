@@ -1,4 +1,4 @@
-# How to Build and Install Find A Match on Your Phone
+# How to Build and Install Match on Your Phone
 
 ## Option 1: Using Expo Go (Current Method - Testing Only)
 

@@ -55,7 +55,7 @@ function computeAndroidBottomInset(e, safeBottom) {
 export default function ChatScreen({ route, navigation }) {
   const { friendId, friendName: nameParam } = route.params || {};
   const { user } = useAuth();
-  const { sendMessage, maxMessageLength } = useMessages();
+  const { sendMessage, maxMessageLength, markConversationRead } = useMessages();
   const { t, primaryLanguage } = useLanguage();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -67,6 +67,7 @@ export default function ChatScreen({ route, navigation }) {
   /** Android (v. a. Expo Go): Fenster wird oft nicht mit der Tastatur verkleinert — Abstand = Tastaturhöhe */
   const [androidKeyboardInset, setAndroidKeyboardInset] = useState(0);
   const listRef = useRef(null);
+  const conversationId = userId && friendId ? getConversationId(userId, friendId) : null;
 
   const title = nameParam || friendId || t('messages.title');
 
@@ -128,6 +129,20 @@ export default function ChatScreen({ route, navigation }) {
     );
     return () => unsub();
   }, [userId, friendId]);
+
+  useEffect(() => {
+    if (!conversationId || !markConversationRead || messages.length === 0) return;
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.senderId === userId) return;
+    const ts = lastMessage.createdAt;
+    const lastMessageMs =
+      typeof ts?.toMillis === 'function'
+        ? ts.toMillis()
+        : typeof ts?.seconds === 'number'
+          ? ts.seconds * 1000
+          : Date.now();
+    markConversationRead(conversationId, lastMessageMs);
+  }, [conversationId, markConversationRead, messages, userId]);
 
   const formatTime = (ts) => {
     if (!ts?.toDate) return '';

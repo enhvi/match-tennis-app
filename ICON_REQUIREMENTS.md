@@ -1,4 +1,4 @@
-# App Icon Requirements for Find A Match
+# App Icon Requirements for Match
 
 ## Overview
 You need to create app icons for iOS and Android. The base icon should be a square image that will be automatically resized for different platforms.
@@ -57,7 +57,7 @@ You need to create app icons for iOS and Android. The base icon should be a squa
    - 1024 x 1024 pixels
    - PNG format
    - Square design
-   - Tennis/racket theme with "Find A Match" branding
+   - Tennis/racket theme with "Match" branding
    - Green color scheme (#4CAF50)
 
 2. **Adaptive Icon** (`adaptive-icon.png`) - Same as main icon
@@ -75,7 +75,7 @@ You need to create app icons for iOS and Android. The base icon should be a squa
 ## Example Prompt for Gemini
 
 ```
-Create an app icon for a tennis match-finding app called "Find A Match":
+Create an app icon for a tennis match-finding app called "Match":
 - Size: 1024x1024 pixels, PNG format
 - Design: Modern, minimalist tennis theme
 - Colors: Green (#4CAF50) as primary color, white accents

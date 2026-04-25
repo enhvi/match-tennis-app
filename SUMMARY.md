@@ -1,6 +1,6 @@
 # Summary
 
-This file captures the key decisions, features, and technical topics discussed for the Find A Match app.
+This file captures the key decisions, features, and technical topics discussed for the Match app.
 
 ## Product Scope
 - Multi‑sport match finding (Tennis, Padel, Golf, Basketball, etc.)
@@ -137,7 +137,7 @@ This file captures the key decisions, features, and technical topics discussed f
 ## Bottom Tab Navigation (Pinterest/Instagram-style)
 - Five tabs at bottom: Home, Notifications, Create, Messages, Profile
 - Simple Ionicons in app colors (blue primary, gray inactive)
-- Home: start screen with "Find A Match" header and menu button
+- Home: start screen with "Match" header and menu button
 - Notifications: full notifications list with unread badge
 - Create: opens request creation (replaces floating + button)
 - Messages: placeholder screen ("Coming soon")

@@ -18,8 +18,9 @@ export default function RequestScreen({ navigation, route }) {
   const { friends, sendRequest, updateRequest, currentUser, requests } = useApp();
   const { t, primaryLanguage } = useLanguage();
   const { colors } = useTheme();
-  const { requestId } = (route && route.params) || {};
+  const { requestId, copyFromRequestId } = (route && route.params) || {};
   const existingRequest = requestId ? requests.find((req) => req.id === requestId) : null;
+  const copySource = copyFromRequestId ? requests.find((req) => req.id === copyFromRequestId) : null;
   
   const getNextFullHour = () => {
     const now = new Date();
@@ -83,32 +84,43 @@ export default function RequestScreen({ navigation, route }) {
     return date;
   };
 
+  const clampEndTimeToStart = (nextStartTime) => {
+    if (!nextStartTime) return;
+    const nextStartMinutes = nextStartTime.getHours() * 60 + nextStartTime.getMinutes();
+    const currentEndMinutes = endTime.getHours() * 60 + endTime.getMinutes();
+    if (currentEndMinutes < nextStartMinutes) {
+      const adjustedEnd = new Date(nextStartTime);
+      setEndTime(adjustedEnd);
+    }
+  };
+
   useEffect(() => {
-    if (!existingRequest) {
+    const seed = existingRequest || copySource;
+    if (!seed) {
       return;
     }
 
-    setSelectedDate(new Date(`${existingRequest.date}T00:00:00`));
-    setStartTime(parseTimeForToday(existingRequest.startTime));
-    setEndTime(parseTimeForToday(existingRequest.endTime));
-    setSelectedSport(existingRequest.sport || '');
-    setPlayersNeeded(existingRequest.playersNeeded ? String(existingRequest.playersNeeded) : '2');
+    setSelectedDate(new Date(`${seed.date}T00:00:00`));
+    setStartTime(parseTimeForToday(seed.startTime));
+    setEndTime(parseTimeForToday(seed.endTime));
+    setSelectedSport(seed.sport || '');
+    setPlayersNeeded(seed.playersNeeded ? String(seed.playersNeeded) : '2');
     setDurationMinutes(
-      existingRequest.durationMinutes ? String(existingRequest.durationMinutes) : ''
+      seed.durationMinutes ? String(seed.durationMinutes) : ''
     );
-    setTimeMode(existingRequest.timeMode === 'exact' ? 'exact' : 'range');
-    setLocation(existingRequest.location || '');
-    setComment(existingRequest.comment || '');
-    setInviteAll(Boolean(existingRequest.inviteAll));
-    const friendIds = existingRequest.friendIds || [];
+    setTimeMode(seed.timeMode === 'exact' ? 'exact' : 'range');
+    setLocation(seed.location || '');
+    setComment(seed.comment || '');
+    setInviteAll(Boolean(seed.inviteAll));
+    const friendIds = seed.friendIds || [];
     setSelectedFriends(friendIds);
-    if (existingRequest.inviteAll) {
-      const allIds = (existingRequest.sport ? friends.filter((f) => f.sports && f.sports.includes(existingRequest.sport)) : friends).map((f) => f.id);
+    if (seed.inviteAll) {
+      const allIds = (seed.sport ? friends.filter((f) => f.sports && f.sports.includes(seed.sport)) : friends).map((f) => f.id);
       setExcludedFriends(allIds.filter((id) => !friendIds.includes(id)));
     } else {
       setExcludedFriends([]);
     }
-  }, [existingRequest, friends]);
+  }, [existingRequest, copySource, friends]);
 
   const handleSendRequest = async () => {
     if (!selectedSport) {
@@ -172,7 +184,7 @@ export default function RequestScreen({ navigation, route }) {
     };
 
     try {
-      if (existingRequest) {
+      if (existingRequest && !copyFromRequestId) {
         await updateRequest(existingRequest.id, requestData);
       } else {
         await sendRequest(requestData);
@@ -311,7 +323,10 @@ export default function RequestScreen({ navigation, route }) {
                   display="spinner"
                   onChange={(event, time) => {
                     setShowStartTimePicker(false);
-                    if (time) setStartTime(time);
+                    if (time) {
+                      setStartTime(time);
+                      clampEndTimeToStart(time);
+                    }
                   }}
                 />
               )}

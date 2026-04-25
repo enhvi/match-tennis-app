@@ -14,7 +14,7 @@ export const useLanguage = () => {
 const translations = {
   en: {
     // Home Screen
-    'app.title': 'Find A Match',
+    'app.title': 'Match',
     'app.subtitle': 'Find your next match!',
     'app.pendingRequests': 'Pending Requests',
     'app.myRequests': 'My Requests',
@@ -80,6 +80,7 @@ const translations = {
     'request.update': 'Update Request',
     'request.success': 'Success',
     'request.sent': 'Request sent to {count} friend(s)!',
+    'request.repeatWeekly': 'Repeat weekly (same weekday & time window)',
     
     // Request Details
     'details.title': 'Match',
@@ -140,6 +141,16 @@ const translations = {
     'details.matchFull': 'Match full',
     'details.matchFullError': 'Match is already full',
     'details.matchFullInfo': 'This request is no longer available. The match is already full.',
+    'details.matchFullErrorDetail': 'Someone else just accepted — the match is full.',
+    'details.acceptedTimesTitle': 'Times chosen',
+    'details.addToCalendar': 'Add to Google Calendar',
+    'details.acceptSimple': 'Confirm (fixed window)',
+    'details.feedbackTitle': 'Feedback',
+    'details.feedbackBody': 'Rate this match (optional)',
+    'details.skipFeedback': 'Skip',
+    'details.reinvite': 'Invite again',
+    'errors.forbidden': 'You are not allowed to do this.',
+    'errors.invalidState': 'Invalid action for this request.',
     'details.notFound': 'Request not found',
     
     // Tabs
@@ -186,6 +197,7 @@ const translations = {
     'notifications.matchRequest': 'Match request from friend',
     'notifications.matchDeclined': 'Match declined',
     'notifications.matchWithdrawn': 'Participant withdrew',
+    'notifications.matchReminder': 'Reminder before match (1 hour)',
     'notifications.matchCancelled': 'Match cancelled',
     'notifications.matchExpired': 'Request expired',
     'notifications.friendAccepted': 'Friend accepted your request',
@@ -195,6 +207,8 @@ const translations = {
     'notifications.type.matchDeclined': 'Match declined',
     'notifications.type.matchWithdrawn': 'Participant withdrew',
     'notifications.type.matchCancelled': 'Match cancelled',
+    'notifications.type.matchLateCancel': 'Short-notice cancellation',
+    'notifications.type.matchReminder': 'Match reminder',
     'notifications.type.matchExpired': 'Request expired',
     'notifications.type.friendAccepted': 'Friend accepted',
     'notifications.justNow': 'Just now',
@@ -214,8 +228,8 @@ const translations = {
     'matchHistory.noMatches': 'No matches yet',
     
     // Share
-    'share.title': 'Find A Match',
-    'share.message': 'Check out Find A Match - an app to find tennis partners and schedule matches! Download it now!',
+    'share.title': 'Match',
+    'share.message': 'Check out Match - an app to find tennis partners and schedule matches! Download it now!',
     'share.error': 'Unable to share the app',
     
     // Settings
@@ -275,8 +289,8 @@ const translations = {
     'friends.noFriends': 'No friends yet',
     'friends.addFirstFriend': 'Add your first friend to get started!',
     'friends.pending': 'Pending',
-    'friends.inviteTitle': 'Join me on Find A Match!',
-    'friends.inviteMessage': 'Hey! Join me on Find A Match - an app to find tennis partners! Add me with my username: {username}',
+    'friends.inviteTitle': 'Join me on Match!',
+    'friends.inviteMessage': 'Hey! Join me on Match - an app to find tennis partners! Add me with my username: {username}',
     'friends.success': 'Success',
     'friends.error': 'Error',
     'friends.inviteSent': 'Invite sent successfully!',
@@ -363,7 +377,7 @@ const translations = {
   },
   de: {
     // Home Screen
-    'app.title': 'Find A Match',
+    'app.title': 'Match',
     'app.subtitle': 'Finde dein nächstes Match!',
     'app.pendingRequests': 'Ausstehende Anfragen',
     'app.myRequests': 'Meine Anfragen',
@@ -429,6 +443,7 @@ const translations = {
     'request.update': 'Anfrage aktualisieren',
     'request.success': 'Erfolg',
     'request.sent': 'Anfrage an {count} Freund(e) gesendet!',
+    'request.repeatWeekly': 'Wöchentlich wiederholen (gleicher Wochentag & Zeitfenster)',
     
     // Request Details
     'details.title': 'Match',
@@ -489,6 +504,16 @@ const translations = {
     'details.matchFull': 'Match voll',
     'details.matchFullError': 'Das Match ist bereits voll',
     'details.matchFullInfo': 'Diese Anfrage ist nicht mehr verfügbar. Das Match ist bereits voll.',
+    'details.matchFullErrorDetail': 'Jemand anderes hat gerade zugesagt – das Match ist voll.',
+    'details.acceptedTimesTitle': 'Gewählte Zeiten',
+    'details.addToCalendar': 'Zu Google Kalender',
+    'details.acceptSimple': 'Zusagen (festes Zeitfenster)',
+    'details.feedbackTitle': 'Feedback',
+    'details.feedbackBody': 'Bewertung optional (1–5)',
+    'details.skipFeedback': 'Überspringen',
+    'details.reinvite': 'Erneut einladen',
+    'errors.forbidden': 'Diese Aktion ist nicht erlaubt.',
+    'errors.invalidState': 'Für diese Anfrage nicht möglich.',
     'details.notFound': 'Anfrage nicht gefunden',
     
     // Tabs
@@ -535,6 +560,7 @@ const translations = {
     'notifications.matchRequest': 'Match-Anfrage von Freund',
     'notifications.matchDeclined': 'Match abgelehnt',
     'notifications.matchWithdrawn': 'Teilnehmer hat abgesagt',
+    'notifications.matchReminder': 'Erinnerung vor dem Match (1 Std.)',
     'notifications.matchCancelled': 'Match abgesagt',
     'notifications.matchExpired': 'Anfrage abgelaufen',
     'notifications.friendAccepted': 'Freund hat Anfrage angenommen',
@@ -544,6 +570,8 @@ const translations = {
     'notifications.type.matchDeclined': 'Match abgelehnt',
     'notifications.type.matchWithdrawn': 'Teilnehmer hat abgesagt',
     'notifications.type.matchCancelled': 'Match abgesagt',
+    'notifications.type.matchLateCancel': 'Kurzfristige Absage',
+    'notifications.type.matchReminder': 'Match-Erinnerung',
     'notifications.type.matchExpired': 'Anfrage abgelaufen',
     'notifications.type.friendAccepted': 'Freund hat angenommen',
     'notifications.justNow': 'Gerade eben',
@@ -563,8 +591,8 @@ const translations = {
     'matchHistory.noMatches': 'Noch keine Matches',
     
     // Share
-    'share.title': 'Find A Match',
-    'share.message': 'Schau dir Find A Match an - eine App, um Tennispartner zu finden und Matches zu planen! Jetzt herunterladen!',
+    'share.title': 'Match',
+    'share.message': 'Schau dir Match an - eine App, um Tennispartner zu finden und Matches zu planen! Jetzt herunterladen!',
     'share.error': 'App konnte nicht geteilt werden',
     
     // Settings
@@ -624,8 +652,8 @@ const translations = {
     'friends.noFriends': 'Noch keine Freunde',
     'friends.addFirstFriend': 'Füge deinen ersten Freund hinzu, um loszulegen!',
     'friends.pending': 'Ausstehend',
-    'friends.inviteTitle': 'Tritt mir bei Find A Match bei!',
-    'friends.inviteMessage': 'Hey! Tritt mir bei Find A Match bei - einer App, um Tennispartner zu finden! Füge mich mit meinem Benutzernamen hinzu: {username}',
+    'friends.inviteTitle': 'Tritt mir bei Match bei!',
+    'friends.inviteMessage': 'Hey! Tritt mir bei Match bei - einer App, um Tennispartner zu finden! Füge mich mit meinem Benutzernamen hinzu: {username}',
     'friends.success': 'Erfolg',
     'friends.error': 'Fehler',
     'friends.inviteSent': 'Einladung erfolgreich gesendet!',
