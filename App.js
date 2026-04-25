@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
-import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -35,13 +34,22 @@ import ChatScreen from './screens/ChatScreen';
 import CreatePlaceholderScreen from './screens/CreatePlaceholderScreen';
 import { MessagesProvider, useMessages } from './context/MessagesContext';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+function setupNotificationsSafely() {
+  try {
+    const Notifications = require('expo-notifications');
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  } catch (error) {
+    console.warn('Notifications init failed:', error);
+  }
+}
+
+setupNotificationsSafely();
 
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -224,7 +232,12 @@ const RootNavigator = () => {
 
   useEffect(() => {
     if (!user || Platform.OS === 'web') return undefined;
-    Notifications.requestPermissionsAsync().catch(() => {});
+    try {
+      const Notifications = require('expo-notifications');
+      Notifications.requestPermissionsAsync().catch(() => {});
+    } catch (error) {
+      console.warn('Notifications permission request failed:', error);
+    }
     return undefined;
   }, [user]);
 
