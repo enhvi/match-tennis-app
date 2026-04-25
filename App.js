@@ -34,22 +34,7 @@ import ChatScreen from './screens/ChatScreen';
 import CreatePlaceholderScreen from './screens/CreatePlaceholderScreen';
 import { MessagesProvider, useMessages } from './context/MessagesContext';
 
-function setupNotificationsSafely() {
-  try {
-    const Notifications = require('expo-notifications');
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-  } catch (error) {
-    console.warn('Notifications init failed:', error);
-  }
-}
-
-setupNotificationsSafely();
+// Emergency safe mode: keep notifications disabled while investigating release startup crash.
 
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -232,12 +217,6 @@ const RootNavigator = () => {
 
   useEffect(() => {
     if (!user || Platform.OS === 'web') return undefined;
-    try {
-      const Notifications = require('expo-notifications');
-      Notifications.requestPermissionsAsync().catch(() => {});
-    } catch (error) {
-      console.warn('Notifications permission request failed:', error);
-    }
     return undefined;
   }, [user]);
 

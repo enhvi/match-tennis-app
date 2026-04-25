@@ -16,6 +16,8 @@ function getStartDateTime(request) {
 }
 
 export async function scheduleConfirmedMatchReminder(requestId, request, prefs) {
+  // Emergency safe mode: disable local notification scheduling in release builds.
+  return;
   if (Platform.OS === 'web' || !prefs?.matchReminder || !requestId) return;
   await cancelMatchReminder(requestId);
   const start = getStartDateTime(request);
@@ -44,6 +46,8 @@ export async function scheduleConfirmedMatchReminder(requestId, request, prefs) 
 }
 
 export async function cancelMatchReminder(requestId) {
+  // Emergency safe mode: disable local notification cancellation in release builds.
+  return;
   if (Platform.OS === 'web' || !requestId) return;
   try {
     const raw = await AsyncStorage.getItem(`${STORAGE_PREFIX}${requestId}`);
