@@ -172,4 +172,21 @@ This file captures the key decisions, features, and technical topics discussed f
 ## Versioning
 - App versions tracked in `package.json`, `app.json`, `VERSION.md`, and `CHANGELOG.md`
 - Version displayed in app footer (Menu and Home screen)
-- Latest saved version: 0.3.2 (tagged `v0.3.2`)
+- Latest saved version: 0.3.4
+
+## Recent Work Log (Google Auth / Startup)
+- Investigated Android startup failure using device logs (`adb logcat`) and identified crash: missing Google OAuth `androidClientId`.
+- Hardened Google auth config to platform-specific IDs in `app.json` + `googleAuthConfig.js`.
+- Updated Google sign-in gating so auth UI appears only when required IDs exist for the active platform.
+- Replaced `google-services.json` with Firebase-regenerated file containing Android OAuth client and SHA mapping.
+- Removed `expo-notifications` dependency and kept reminder scheduling disabled to reduce startup instability during this fix cycle.
+- Startup-stability fixes also include removal of runtime `require('../package.json')` version reads in UI screens.
+
+## Recent Work Log (Release 0.3.4)
+- Published privacy policy to GitHub Pages and connected `expo.extra.privacyPolicyUrl`.
+- Added Play Store privacy release docs (`PRIVACY_POLICY.md`, `docs/PLAYSTORE_DATA_SAFETY.md`, `docs/DATA_RETENTION_POLICY.md`).
+- Added privacy section in Settings with direct link to the policy.
+- Hardened auth flows:
+  - Password reset checks sign-in method before sending reset email.
+  - Google login supports Expo proxy/client handling and improved error propagation.
+- Tightened Firestore `notifications` create rule to prevent self-targeted creates.

@@ -16,7 +16,11 @@ import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-const appVersion = Constants.expoConfig?.version || require('../package.json').version || '0.3.2';
+const appVersion =
+  Constants.expoConfig?.version ||
+  Constants.manifest?.version ||
+  Constants.nativeAppVersion ||
+  '0.3.2';
 
 const HEADER_HEIGHT = Platform.select({ ios: 44, android: 56 });
 

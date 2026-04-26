@@ -5,6 +5,38 @@ All notable changes to Match will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+---
+
+## [0.3.4] - 2026-04-26
+
+### Added
+- Public privacy policy hosting via GitHub Pages (`privacy-policy.html`) and app-level privacy URL configuration (`expo.extra.privacyPolicyUrl`).
+- Release documentation for store compliance:
+  - `PRIVACY_POLICY.md`
+  - `docs/PLAYSTORE_DATA_SAFETY.md`
+  - `docs/DATA_RETENTION_POLICY.md`
+- Settings screen privacy section with direct link to the published privacy policy.
+
+### Changed
+- Crash root cause identified via adb logcat: missing Google OAuth `androidClientId` in production build.
+- Google auth configuration hardened for production with platform-specific config keys:
+  - `expo.extra.googleWebClientId`
+  - `expo.extra.googleAndroidClientId`
+  - `expo.extra.googleIosClientId`
+- Google sign-in button now renders only when required platform OAuth IDs are configured (prevents startup crash on Android).
+- Login/Signup/Account screens now use a shared Google-auth readiness check and updated user hints.
+- `google-services.json` updated with Android OAuth client + SHA fingerprint mapping from Firebase.
+
+### Fixed
+- Startup crash on Android (`Client Id property androidClientId must be defined`) no longer occurs due to missing config.
+- Google sign-in flow improved for Expo Go and native builds by adding `expoClientId` support and improved OAuth error propagation.
+- Password reset flow improved with provider checks and clearer reset handling for non-password accounts.
+- Firestore notification create rule tightened to reduce abuse risk from self-targeted writes.
+
+---
+
 ## [0.3.3] - 2026-04-24
 
 ### Added

@@ -19,7 +19,11 @@ import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-const appVersion = Constants.expoConfig?.version || require('../package.json').version || '0.3.2';
+const appVersion =
+  Constants.expoConfig?.version ||
+  Constants.manifest?.version ||
+  Constants.nativeAppVersion ||
+  '0.3.2';
 
 export default function HomeScreen({ navigation }) {
   const { requests, friends, currentUser, cancelRequest } = useApp();
@@ -96,12 +100,9 @@ export default function HomeScreen({ navigation }) {
     Golf: { bg: '#e8f5e9', border: '#5bb87a' },
     Basketball: { bg: '#fff3e0', border: '#ff9800' },
   };
-  const sportBackgrounds = {
-    Tennis: require('../assets/sportBackgrounds/tennis.png'),
-    Padel: require('../assets/sportBackgrounds/padel.png'),
-    Golf: require('../assets/sportBackgrounds/golf.png'),
-    Basketball: require('../assets/sportBackgrounds/basketball.png'),
-  };
+  // Startup stability: keep heavy background images disabled in release builds
+  // until optimized assets are available.
+  const sportBackgrounds = {};
   const getCardStyle = (sport) => {
     const sc = sportColors[sport] || { bg: '#f8f9fa', border: '#dee2e6' };
     const hasBgImage = sportBackgrounds[sport];

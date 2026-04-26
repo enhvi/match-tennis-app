@@ -366,10 +366,14 @@ const translations = {
       'You signed in with Google. Email and password for this app are managed in your Google account.',
     'settings.passwordSectionTitle': 'Email & password',
     'settings.googleDeleteLabel': 'Delete account (confirm with Google)',
-    'settings.googleNotConfigured': 'Google sign-in: add your Web Client ID in app.json → expo.extra.googleWebClientId',
+    'settings.googleNotConfigured':
+      'Google sign-in: add app.json client IDs under expo.extra (googleWebClientId + platform-specific googleAndroidClientId / googleIosClientId).',
     'settings.sectionAccountAuth': 'Account & sign-in',
     'settings.googleAccountSetupNote':
-      'Google login needs the Web Client ID in app.json (expo.extra.googleWebClientId) and Google enabled under Firebase → Authentication.',
+      'Google login needs app.json client IDs (expo.extra.googleWebClientId and googleAndroidClientId / googleIosClientId) and Google enabled in Firebase → Authentication.',
+    'settings.sectionPrivacy': 'Privacy',
+    'settings.privacyInfo': 'Manage your privacy information and review how Match processes your data.',
+    'settings.openPrivacyPolicy': 'Open privacy policy',
 
     // Common
     'common.ok': 'OK',
@@ -729,10 +733,14 @@ const translations = {
       'Du bist mit Google angemeldet. E-Mail und Passwort für diese App werden über dein Google-Konto geregelt.',
     'settings.passwordSectionTitle': 'E-Mail & Passwort',
     'settings.googleDeleteLabel': 'Konto löschen (mit Google bestätigen)',
-    'settings.googleNotConfigured': 'Google-Anmeldung: Web-Client-ID in app.json unter expo.extra.googleWebClientId eintragen',
+    'settings.googleNotConfigured':
+      'Google-Anmeldung: Client-IDs in app.json unter expo.extra eintragen (googleWebClientId + plattformspezifisch googleAndroidClientId / googleIosClientId).',
     'settings.sectionAccountAuth': 'Konto & Anmeldung',
     'settings.googleAccountSetupNote':
-      'Für Google-Login: Web-Client-ID in app.json (expo.extra.googleWebClientId) eintragen und Google unter Firebase → Authentication aktivieren.',
+      'Für Google-Login: Client-IDs in app.json (expo.extra.googleWebClientId und googleAndroidClientId / googleIosClientId) eintragen und Google unter Firebase → Authentication aktivieren.',
+    'settings.sectionPrivacy': 'Datenschutz',
+    'settings.privacyInfo': 'Hier findest du Informationen, wie Match deine Daten verarbeitet.',
+    'settings.openPrivacyPolicy': 'Datenschutzerklärung öffnen',
 
     // Common
     'common.ok': 'OK',

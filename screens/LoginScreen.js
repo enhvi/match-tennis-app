@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import { GOOGLE_WEB_CLIENT_ID } from '../googleAuthConfig';
+import { isGoogleAuthConfiguredForPlatform } from '../googleAuthConfig';
 
 const FIREBASE_CHECKLIST =
   '1. console.firebase.google.com/project/match-tennis-app-c65eb/firestore\n' +
@@ -24,6 +24,8 @@ const FIREBASE_CHECKLIST =
   '5. App Check: Wenn "Erzwingen" für Firestore an → deaktivieren';
 
 export default function LoginScreen({ navigation }) {
+  const googleAuthConfigured = isGoogleAuthConfiguredForPlatform();
+
   const { login, sendPasswordReset, signInWithGoogleIdToken } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
@@ -131,7 +133,7 @@ export default function LoginScreen({ navigation }) {
           onError={(msg) => Alert.alert(t('auth.loginTitle'), msg)}
         />
 
-        {!GOOGLE_WEB_CLIENT_ID ? (
+        {!googleAuthConfigured ? (
           <Text style={[styles.configHint, { color: colors.textMuted || colors.textSecondary }]}>
             {t('settings.googleNotConfigured')}
           </Text>

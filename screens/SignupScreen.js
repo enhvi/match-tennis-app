@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import { GOOGLE_WEB_CLIENT_ID } from '../googleAuthConfig';
+import { isGoogleAuthConfiguredForPlatform } from '../googleAuthConfig';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
 export default function SignupScreen({ navigation }) {
+  const googleAuthConfigured = isGoogleAuthConfiguredForPlatform();
+
   const { signup, signInWithGoogleIdToken } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
@@ -103,7 +105,7 @@ export default function SignupScreen({ navigation }) {
           onError={(msg) => Alert.alert(t('auth.signupTitle'), msg)}
         />
 
-        {!GOOGLE_WEB_CLIENT_ID ? (
+        {!googleAuthConfigured ? (
           <Text style={[styles.configHint, { color: colors.textMuted || colors.textSecondary }]}>
             {t('settings.googleNotConfigured')}
           </Text>

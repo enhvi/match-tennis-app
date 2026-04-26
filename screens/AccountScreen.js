@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import { GOOGLE_WEB_CLIENT_ID } from '../googleAuthConfig';
+import { isGoogleAuthConfiguredForPlatform } from '../googleAuthConfig';
 import { usesEmailPassword, usesGoogle } from '../utils/authProviders';
 
 export default function AccountScreen({ navigation }) {
@@ -34,6 +34,7 @@ export default function AccountScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [showGoogleDeleteStep, setShowGoogleDeleteStep] = useState(false);
+  const googleAuthConfigured = isGoogleAuthConfiguredForPlatform();
 
   const hasPassword = usesEmailPassword(user);
   const hasGoogle = usesGoogle(user);
@@ -159,7 +160,7 @@ export default function AccountScreen({ navigation }) {
             </Text>
           )}
 
-          {!GOOGLE_WEB_CLIENT_ID && (
+          {!googleAuthConfigured && (
             <Text style={[styles.googleHint, { color: colors.warning || '#c0392b', marginBottom: 12 }]}>
               {t('settings.googleNotConfigured')}
             </Text>

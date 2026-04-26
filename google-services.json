@@ -12,7 +12,20 @@
           "package_name": "com.tennisapp.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1083932941306-n7knq2sv1tpu7gofu3nadjgrd9mc3c28.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tennisapp.app",
+            "certificate_hash": "0938546a47e11699b0f71a79c0d68bf0f4426061"
+          }
+        },
+        {
+          "client_id": "1083932941306-rfjueotkdvve9kf2jjlbsopou4ree4l8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCNMEeozaWHClIBYqp3AS1Psj4pKLc1kX8"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1083932941306-rfjueotkdvve9kf2jjlbsopou4ree4l8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

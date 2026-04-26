@@ -9,6 +9,10 @@ This checklist keeps Android releases reproducible and makes it clear which vers
 - [ ] Smoke test on device (login, requests, notifications, chat)
 - [ ] No blocking errors in console/logs
 - [ ] Firebase rules/functions are deployed if required by the release
+- [ ] Privacy policy is published at a public HTTPS URL
+- [ ] `app.json` -> `expo.extra.privacyPolicyUrl` points to that public URL
+- [ ] Play Console "Data safety" answers reviewed and up to date
+- [ ] Account deletion flow tested end-to-end in production-like build
 
 ## 2) Versioning (single source of truth)
 

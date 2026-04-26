@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
-import { GOOGLE_WEB_CLIENT_ID } from '../googleAuthConfig';
+import {
+  GOOGLE_ANDROID_CLIENT_ID,
+  GOOGLE_EXPO_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
+  isGoogleAuthConfiguredForPlatform,
+} from '../googleAuthConfig';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -12,19 +19,31 @@ WebBrowser.maybeCompleteAuthSession();
  * @param {(msg: string) => void} [props.onError]
  * @param {string} props.label
  */
-export default function GoogleSignInButton({ mode, onIdToken, onError, label, disabled }) {
+function GoogleSignInConfiguredButton({ mode, onIdToken, onError, label, disabled }) {
   const [busy, setBusy] = useState(false);
 
   const [request, , promptAsync] = useIdTokenAuthRequest({
+    expoClientId: GOOGLE_EXPO_CLIENT_ID || undefined,
     webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
     selectAccount: mode === 'signIn',
   });
 
   const handlePress = async () => {
     try {
       setBusy(true);
-      const result = await promptAsync();
+      const useExpoProxy = Constants.appOwnership === 'expo';
+      const result = await promptAsync(useExpoProxy ? { useProxy: true } : undefined);
       if (result.type !== 'success') {
+        if (result.type !== 'dismiss' && result.type !== 'cancel') {
+          const message =
+            result.error?.message ||
+            result.params?.error_description ||
+            result.params?.error ||
+            'Google sign-in failed';
+          onError?.(message);
+        }
         return;
       }
       const idToken = result.params?.id_token;
@@ -40,7 +59,7 @@ export default function GoogleSignInButton({ mode, onIdToken, onError, label, di
     }
   };
 
-  const configured = Boolean(GOOGLE_WEB_CLIENT_ID && request);
+  const configured = Boolean(request);
 
   return (
     <TouchableOpacity
@@ -58,6 +77,14 @@ export default function GoogleSignInButton({ mode, onIdToken, onError, label, di
       </View>
     </TouchableOpacity>
   );
+}
+
+export default function GoogleSignInButton(props) {
+  // Avoid startup crashes when required OAuth client ids are missing.
+  if (!isGoogleAuthConfiguredForPlatform()) {
+    return null;
+  }
+  return <GoogleSignInConfiguredButton {...props} />;
 }
 
 const styles = StyleSheet.create({

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   EmailAuthProvider,
+  fetchSignInMethodsForEmail,
   GoogleAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
@@ -278,7 +279,15 @@ export const AuthProvider = ({ children }) => {
     if (!trimmedEmail) {
       throw new Error('Email is required');
     }
-    await sendPasswordResetEmail(auth, trimmedEmail);
+    const signInMethods = await fetchSignInMethodsForEmail(auth, trimmedEmail);
+    if (!signInMethods.includes('password')) {
+      throw new Error('No password login found for this email');
+    }
+
+    await sendPasswordResetEmail(auth, trimmedEmail, {
+      url: 'https://match-tennis-app-c65eb.firebaseapp.com/__/auth/action',
+      handleCodeInApp: false,
+    });
   };
 
   const deleteAccountWithPassword = async (currentPassword) => {

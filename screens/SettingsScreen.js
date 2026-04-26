@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Linking,
   StyleSheet,
   Text,
   View,
@@ -8,6 +9,7 @@ import {
   SafeAreaView,
   Switch,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -19,6 +21,7 @@ export default function SettingsScreen({ navigation }) {
   const { prefs, updatePref } = useNotifications();
   const [selectedLanguage, setSelectedLanguage] = useState(primaryLanguage);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const privacyPolicyUrl = Constants.expoConfig?.extra?.privacyPolicyUrl || '';
 
   const handleSave = () => {
     setLanguages([selectedLanguage], selectedLanguage);
@@ -105,6 +108,34 @@ export default function SettingsScreen({ navigation }) {
               {t('settings.googleNotConfigured')}
             </Text>
           ) : null}
+        </View>
+
+        <View style={[styles.card, cardStyle]}>
+          <View style={[styles.sectionLabelRow, { borderLeftColor: colors.primary }]}>
+            <Text style={[styles.sectionLabel, sectionLabelStyle]}>{t('settings.sectionPrivacy')}</Text>
+          </View>
+          <Text style={[styles.googleSetupNote, { color: colors.textSecondary }]}>
+            {t('settings.privacyInfo')}
+          </Text>
+          <TouchableOpacity
+            style={styles.privacyLinkButton}
+            onPress={() => {
+              if (!privacyPolicyUrl) {
+                return;
+              }
+              Linking.openURL(privacyPolicyUrl).catch(() => {});
+            }}
+            disabled={!privacyPolicyUrl}
+          >
+            <Text
+              style={[
+                styles.privacyLinkText,
+                { color: privacyPolicyUrl ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              {t('settings.openPrivacyPolicy')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Planning: when pending requests expire */}
@@ -270,6 +301,13 @@ const styles = StyleSheet.create({
   googleSetupWarn: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  privacyLinkButton: {
+    marginTop: 10,
+  },
+  privacyLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   planningTitle: {
     fontSize: 15,

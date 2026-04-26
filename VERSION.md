@@ -1,3 +1,22 @@
+# Match - Version 0.3.4
+
+## Release Date
+April 26, 2026
+
+## Changes from 0.3.3
+- Added GitHub Pages-hosted privacy policy and connected the in-app privacy URL.
+- Added release/privacy docs for Play Store submission:
+  - `PRIVACY_POLICY.md`
+  - `docs/PLAYSTORE_DATA_SAFETY.md`
+  - `docs/DATA_RETENTION_POLICY.md`
+- Added a privacy section in Settings with direct policy link access.
+- Improved auth reliability:
+  - Google sign-in support enhanced for Expo Go and native flows.
+  - Password reset behavior hardened with sign-in method checks.
+- Security hardening: Firestore notification create rules tightened.
+
+---
+
 # Match - Version 0.3.3
 
 ## Release Date
