@@ -32,7 +32,10 @@
     },
     "scheme": "match",
     "extra": {
+      "privacyPolicyUrl": "https://enhvi.github.io/match-tennis-app/privacy-policy.html",
       "googleWebClientId": "1083932941306-rfjueotkdvve9kf2jjlbsopou4ree4l8.apps.googleusercontent.com",
+      "googleAndroidClientId": "1083932941306-n7knq2sv1tpu7gofu3nadjgrd9mc3c28.apps.googleusercontent.com",
+      "googleIosClientId": "",
       "eas": {
         "projectId": "d5fb047c-346b-45cb-b08a-c522311f1aa0"
       }
